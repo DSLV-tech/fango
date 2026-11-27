@@ -133,7 +133,7 @@
   document.addEventListener("contextmenu", (e) => e.preventDefault());
 
   // sterzo inclinando il telefono come un volante. L'angolo della gravità nel
-  // piano dello schermo: ruotando il telefono in senso orario diminuisce. Il
+  // piano dello schermo: ruotando il telefono in senso orario cresce (provato su telefono). Il
   // "dritto" è la posizione in cui lo si accende (spegni e riaccendi per rifarlo), così
   // non contano il verso del landscape né il segno invertito che dà iOS (sono
   // solo uno sfasamento costante).
@@ -145,7 +145,7 @@
     if (!g || g.x == null || Math.hypot(g.x, g.y) < 3) return;   // telefono quasi piatto: si tiene l'ultimo valore
     const a = Math.atan2(g.x, g.y);
     if (zero === null) zero = a;
-    let d = zero - a;
+    let d = a - zero;
     d = Math.atan2(Math.sin(d), Math.cos(d));
     angle += (d - angle) * 0.5;                           // smorza il tremolio
     let s = Math.max(-1, Math.min(1, angle / TILT_MAX));
