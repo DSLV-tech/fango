@@ -145,26 +145,37 @@
   });
   document.addEventListener("contextmenu", (e) => e.preventDefault());
 
-  // sterzo inclinando il telefono come un volante. L'angolo della gravità nel
-  // piano dello schermo: ruotando il telefono in senso orario cresce (provato su telefono). Il
-  // "dritto" è la posizione in cui lo si accende (spegni e riaccendi per rifarlo), così
-  // non contano il verso del landscape né il segno invertito che dà iOS (sono
-  // solo uno sfasamento costante).
-  const TILT_MAX = 0.5;                                  // ≈ 29° per sterzare tutto
-  let tilt = false, zero = null, angle = 0, tiltS = 0;
+  // sterzo inclinando il telefono come un volante. Quando lo si accende si
+  // prende il "su" della gravità nel piano dello schermo (quello è il dritto:
+  // spegni e riaccendi per rifarlo); da lì l'asse di lato è il su ruotato di 90°.
+  // Lo sterzo è l'angolo vero di rollio, asin(gravità di lato / gravità intera):
+  // non cambia con quanto il telefono è reclinato verso di sé (atan2 nel piano
+  // dello schermo invece si amplificava fino a impazzire col telefono quasi piatto).
+  // Verso, dai conti: ruotando il telefono in senso orario la gravità nel piano
+  // gira in senso antiorario, quindi su (0,1) → lato (-1,0) dà il positivo = destra.
+  // Vale anche su iOS e in landscape: iOS ribalta tutto il vettore e il landscape
+  // ruota il su, ma l'asse di lato si ricava dal su e segue entrambi.
+  const TILT_MAX = 0.45;                                 // ≈ 26° di rollio per sterzare tutto
+  const DEAD = 0.06;                                     // zona morta, poi si riparte da 0 senza scalino
+  let tilt = false, side = null, angle = 0, tiltS = 0;
   const wheel = $("#wheel"), tiltb = $("#tiltb");
   function onMotion(e) {
     const g = e.accelerationIncludingGravity;
-    if (!g || g.x == null || Math.hypot(g.x, g.y) < 3) return;   // telefono quasi piatto: si tiene l'ultimo valore
-    const a = Math.atan2(g.x, g.y);
-    if (zero === null) zero = a;
-    let d = a - zero;
-    d = Math.atan2(Math.sin(d), Math.cos(d));
-    angle += (d - angle) * 0.5;                           // smorza il tremolio
-    let s = Math.max(-1, Math.min(1, angle / TILT_MAX));
-    if (Math.abs(s) < 0.08) s = 0;
+    if (!g || g.x == null || g.y == null) return;
+    const gz = g.z || 0, all = Math.hypot(g.x, g.y, gz);
+    if (all < 3) return;                                  // in caduta o sensore assurdo
+    if (side === null) {
+      const inPlane = Math.hypot(g.x, g.y);
+      if (inPlane < 3) return;                            // piatto: non si sa dov'è il dritto, si aspetta
+      side = { x: -g.y / inPlane, y: g.x / inPlane };     // il su ruotato di 90° in senso antiorario
+    }
+    const roll = Math.asin(Math.max(-1, Math.min(1, (g.x * side.x + g.y * side.y) / all)));
+    angle += (roll - angle) * 0.5;                        // smorza il tremolio
+    const v = Math.max(-1, Math.min(1, angle / TILT_MAX));
+    const s = Math.abs(v) < DEAD ? 0 : Math.sign(v) * (Math.abs(v) - DEAD) / (1 - DEAD);
     tiltS = Math.round(s * 20) / 20;
-    wheel.style.rotate = `${Math.max(-1, Math.min(1, angle / TILT_MAX)) * 90}deg`;
+    // il disegno gira quanto il rollio (1:1), non tre volte tanto
+    wheel.style.rotate = `${v * TILT_MAX * 180 / Math.PI}deg`;
     if (steerId === null) {                               // un dito sui tasti ha la precedenza
       st.s = tiltS;
       L.classList.toggle("on", st.s < -0.15); R.classList.toggle("on", st.s > 0.15);
@@ -178,7 +189,7 @@
     }
     if (on && typeof DeviceMotionEvent === "undefined") { on = false; say("Questo telefono non ha i sensori di movimento."); }
     if (on && conn) say("Collegato · tieni il telefono dritto: quello è il centro", true);
-    tilt = on; zero = null; angle = 0;
+    tilt = on; side = null; angle = 0;
     tiltb.classList.toggle("on", on); zone.classList.toggle("tilt", on);
     store.set("fango.tilt", on ? "1" : "");
     if (on) addEventListener("devicemotion", onMotion);
