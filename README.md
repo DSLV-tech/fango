@@ -52,4 +52,5 @@ auto ricollegandosi; nel frattempo la guida il computer.
   riferimento della grafica, il gioco li segue
 - `img/` — gli asset disegnati da Gemini e scontornati: `auto.webp` e `piloti.webp`
   (4 celle, nell'ordine dei posti), `*-oggetti.webp` (8 celle da 160 px),
-  `*-terreno.webp` e `*-strada.webp` (texture ripetute), `logo`, `nitro`, `volante`
+  `*-terreno.webp` e `*-strada.webp` (texture ripetute), `fango.webp` e
+  `pozzanghere.webp` (6 celle da 200 px, nei tratti di fango e d'acqua), `logo`, `nitro`, `volante`

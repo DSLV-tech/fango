@@ -86,7 +86,7 @@
   // La grafica viene da Gemini (design/ sono i bozzetti, img/ gli asset scontornati):
   // texture di terreno e strada ripetute, oggetti di contorno a fogli 4×2 da 160 px.
   const ART = {};
-  const ART_FILES = ["auto", "nitro", "cava-terreno", "cava-strada", "cava-oggetti", "palude-terreno", "palude-strada", "palude-oggetti", "dune-terreno", "dune-strada", "dune-oggetti"];
+  const ART_FILES = ["auto", "nitro", "cava-terreno", "cava-strada", "cava-oggetti", "palude-terreno", "palude-strada", "palude-oggetti", "dune-terreno", "dune-strada", "dune-oggetti", "fango", "pozzanghere"];
   const loadArt = () => Promise.all(ART_FILES.map((n) => new Promise((ok) => {
     const im = new Image();
     im.onload = () => { ART[n] = im; ok(); };
@@ -122,10 +122,12 @@
     // fango e acqua su un foglio a parte, ritagliato sulla forma della pista
     const pc = document.createElement("canvas"); pc.width = W * S; pc.height = H * S;
     const pg = pc.getContext("2d"); pg.scale(S, S);
-    const blobs = [];
+    // pozze di fango (1) e d'acqua (2) disegnate da Gemini: fango.webp e pozzanghere.webp,
+    // 6 celle da 200 px ciascuno. Se un foglio manca, chiazze tonde disegnate qui.
+    const POOLS = { 1: ART.fango, 2: ART.pozzanghere }, blobs = [];
     for (let i = 0; i < T.N; i++) {
       const s = T.surf[i];
-      if (s === 1 || s === 2) for (let k = 0; k < 3; k++) blobs.push({ s, p: across(i, (R() * 2 - 1) * 0.7), r: T.hw * (0.35 + R() * 0.3) });
+      if ((s === 1 || s === 2) && !POOLS[s]) for (let k = 0; k < 3; k++) blobs.push({ s, p: across(i, (R() * 2 - 1) * 0.7), r: T.hw * (0.35 + R() * 0.3) });
     }
     // prima il bordo scuro, poi la pozza: si legge come un avvallamento
     for (const b of blobs) { pg.fillStyle = b.s === 1 ? "#2e1b0c" : "#24506f"; pg.beginPath(); pg.arc(...b.p, b.r + 1.6, 0, 7); pg.fill(); }
@@ -137,12 +139,30 @@
       pg.fillStyle = b.s === 1 ? "rgba(255,225,190,.16)" : "rgba(255,255,255,.35)";
       pg.beginPath(); pg.ellipse(b.p[0] - b.r * 0.3, b.p[1] - b.r * 0.35, b.r * 0.35, b.r * 0.15, -0.4, 0, 7); pg.fill();
     }
+    // Ogni tratto di fango o d'acqua ha alcune pozze in fila, col lato lungo nel verso della
+    // strada, una dopo l'altra senza sovrapporsi (i bordi non si coprono), allungate quanto
+    // basta a coprire tutto il tratto in cui la superficie frena.
+    for (let a = 0; a < T.N; a++) {
+      const sf = T.surf[a], pools = POOLS[sf];
+      if (!pools || sf === T.surf[(a - 1 + T.N) % T.N]) continue;
+      let n = 0; while (n < T.N && T.surf[(a + n) % T.N] === sf) n++;
+      // il fango invece si sovrappone bene (bordo di fango su fango): pozze fitte che
+      // seguono anche le curve strette
+      const mud = sf === 1, len = n * T.step, k = Math.max(1, Math.round(len / (T.hw * (mud ? 1 : 2.6))));
+      const along = mud ? T.hw * 2.1 : len / k + 2, wide = Math.min(T.hw * (mud ? 2.1 : 2.6), along);
+      for (let j = 0; j < k; j++) {
+        const i = (a + Math.floor((j + 0.5) * n / k)) % T.N, cell = (R() * 6) | 0;
+        pg.save(); pg.translate(...across(i, (R() * 2 - 1) * 0.15)); pg.rotate(Math.atan2(T.ty[i], T.tx[i]) + (R() - 0.5) * 0.2);
+        pg.drawImage(pools, (cell % 3) * 200, (cell / 3 | 0) * 200, 200, 200, -along / 2, -wide / 2, along, wide);
+        pg.restore();
+      }
+    }
     pg.globalCompositeOperation = "destination-in";
     pg.beginPath(); pg.moveTo(T.x[0], T.y[0]); for (let i = 1; i < T.N; i++) pg.lineTo(T.x[i], T.y[i]); pg.closePath();
     pg.lineJoin = "round"; pg.lineWidth = def.w + 2; pg.strokeStyle = "#000"; pg.stroke();
     g.drawImage(pc, 0, 0, W, H);
     for (let i = 0; i < T.N; i++) {
-      if (T.surf[i] === 2 && R() < 0.25) { const [px, py] = across(i, (R() * 2 - 1) * 0.6); g.fillStyle = "rgba(255,255,255,.5)"; g.fillRect(px, py, 3 + R() * 4, 1); }
+      if (T.surf[i] === 2 && !POOLS[2] && R() < 0.25) { const [px, py] = across(i, (R() * 2 - 1) * 0.6); g.fillStyle = "rgba(255,255,255,.5)"; g.fillRect(px, py, 3 + R() * 4, 1); }
       if (T.surf[i] === 3 && i % 3 === 0) {
         const a = across(i, -0.95), b = across(i, 0.95);
         g.strokeStyle = (i / 3) & 1 ? "rgba(0,0,0,.22)" : "rgba(255,255,255,.18)"; g.lineWidth = 2;
@@ -163,16 +183,42 @@
         }
       }
     }
-    // cordoli bianchi e rossi dove la pista curva
-    g.lineCap = "butt"; g.lineWidth = 3;
+    // cordoli bianchi e rossi lungo il bordo, dove la pista curva (un po' prima e dopo).
+    // Un punto vale solo se cade fuori dalla carreggiata: nei tornanti stretti il bordo
+    // interno si ripiega su sé stesso e finirebbe in mezzo alla strada, o su un altro tratto.
+    const curve = new Uint8Array(T.N);
     for (let i = 0; i < T.N; i++) {
       const a = (i - 6 + T.N) % T.N, b = (i + 6) % T.N;
-      if (Math.abs(T.tx[a] * T.ty[b] - T.ty[a] * T.tx[b]) < 0.2) continue;
-      for (const side of [-1, 1]) {
-        const f = side * (1 + 1.5 / T.hw);
-        g.strokeStyle = ((i >> 1) + (side > 0 ? 1 : 0)) & 1 ? "#e8e0d0" : "#c8322a";
-        g.beginPath(); g.moveTo(...across(i, f)); g.lineTo(...across((i + 1) % T.N, f)); g.stroke();
+      if (Math.abs(T.tx[a] * T.ty[b] - T.ty[a] * T.tx[b]) >= 0.2) for (let k = -4; k <= 4; k++) curve[(i + k + T.N) % T.N] = 1;
+    }
+    const CURB = 1 + 1.5 / T.hw;
+    for (const side of [-1, 1]) {
+      const ok = new Uint8Array(T.N);
+      for (let i = 0; i < T.N; i++) {
+        if (!curve[i]) continue;
+        const [px, py] = across(i, side * CURB);
+        ok[i] = Math.abs(locate(T, px, py, i, true).lat) > T.hw - 0.5 ? 1 : 0;
       }
+      // tratti continui: si parte da un punto senza cordolo, così nessun tratto è spezzato a metà
+      const from = ok.indexOf(0);
+      if (from < 0) continue;
+      const runs = [];
+      let run = null;
+      for (let k = 1; k <= T.N; k++) {
+        const i = (from + k) % T.N;
+        if (!ok[i]) { run = null; continue; }
+        if (!run) runs.push((run = []));
+        run.push(across(i, side * CURB));
+      }
+      g.lineJoin = "round"; g.lineCap = "butt";
+      for (const r of runs) {
+        if (r.length < 3) continue;
+        g.beginPath(); g.moveTo(...r[0]); for (const p of r) g.lineTo(...p);
+        g.setLineDash([]); g.lineWidth = 4.4; g.strokeStyle = "#2a170c"; g.stroke();
+        g.lineWidth = 3; g.strokeStyle = "#ece4d4"; g.stroke();
+        g.setLineDash([4.5, 4.5]); g.strokeStyle = "#c8322a"; g.stroke();
+      }
+      g.setLineDash([]);
     }
     g.lineCap = "round";
     // traguardo a scacchi
