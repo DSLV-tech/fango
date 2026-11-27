@@ -34,12 +34,21 @@
     #state { font-size: 12px; color: var(--dim); display: flex; gap: 6px; align-items: baseline; }
     #state i { width: 8px; height: 8px; border-radius: 50%; background: var(--warm); }
     #state.on i { background: #7ad38a; }
-    #startb { pointer-events: auto; margin-top: 4px; padding: 8px 20px; border-radius: 20px; border: 2px solid var(--c); background: var(--btn); font-weight: 800; letter-spacing: .05em; }
+    .btns { display: flex; gap: 8px; margin-top: 4px; }
+    .btns button { pointer-events: auto; padding: 8px 16px; border-radius: 20px; border: 2px solid var(--line); background: var(--btn); font-weight: 800; font-size: 14px; letter-spacing: .05em; }
+    #startb { border-color: var(--c) !important; }
+    #tiltb.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 35%, var(--btn)); }
 
     /* sterzo: metà sinistra, il pollice scorre tra ◀ e ▶ */
     #steer { position: absolute; left: 0; top: 0; bottom: 0; width: 52%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
       padding: 90px 10px max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
     #steer div { border-radius: 22px; border: 3px solid var(--line); background: var(--btn); display: grid; place-content: center; font-size: 46px; color: var(--dim); }
+    #steer.tilt div { opacity: .35; }
+    #wheel { position: absolute; left: 50%; top: calc(50% + 37px); width: min(60%, 46vh); aspect-ratio: 1; margin: 0; translate: -50% -50%; border-radius: 50%;
+      border: 10px solid var(--c); pointer-events: none; display: none; }
+    #wheel::before { content: ""; position: absolute; left: 50%; top: 50%; width: 100%; height: 10px; translate: -50% -50%; background: var(--c); }
+    #wheel::after { content: ""; position: absolute; left: 50%; top: 50%; width: 10px; height: 50%; translate: -50% 0; background: var(--c); }
+    #steer.tilt #wheel { display: block; }
     #steer div.on { border-color: var(--c); color: var(--ink); background: color-mix(in srgb, var(--c) 30%, var(--btn)); }
     .right { position: absolute; right: 0; top: 0; bottom: 0; width: 46%; display: grid; grid-template-rows: 1fr 1.8fr; grid-template-columns: 1fr 1.7fr; gap: 10px;
       padding: 90px max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) 10px; }
@@ -70,9 +79,9 @@
       <div class="who"><i></i><span id="me">…</span></div>
       <div id="hud"></div>
       <div id="state"><i></i><span></span></div>
-      <button id="startb" data-k>START</button>
+      <div class="btns"><button id="startb">START</button><button id="tiltb">INCLINA</button></div>
     </div>
-    <div id="steer"><div data-dir="-1">◀</div><div data-dir="1">▶</div></div>
+    <div id="steer"><div data-dir="-1">◀</div><div data-dir="1">▶</div><i id="wheel"></i></div>
     <div class="right">
       <button id="nitro">NITRO</button>
       <button id="rev"><small>▼</small>RETRO</button>

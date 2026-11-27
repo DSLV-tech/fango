@@ -128,9 +128,51 @@
   zone.addEventListener("pointermove", (e) => { if (e.pointerId === steerId) steer(e); });
   for (const ev of ups) zone.addEventListener(ev, (e) => {
     if (e.pointerId !== steerId) return;
-    steerId = null; st.s = 0; L.classList.remove("on"); R.classList.remove("on"); send();
+    steerId = null; st.s = tilt ? tiltS : 0; L.classList.remove("on"); R.classList.remove("on"); send();
   });
   document.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  // sterzo inclinando il telefono come un volante. L'angolo della gravità nel
+  // piano dello schermo: ruotando il telefono in senso orario diminuisce. Il
+  // "dritto" è la posizione in cui lo si accende (spegni e riaccendi per rifarlo), così
+  // non contano il verso del landscape né il segno invertito che dà iOS (sono
+  // solo uno sfasamento costante).
+  const TILT_MAX = 0.5;                                  // ≈ 29° per sterzare tutto
+  let tilt = false, zero = null, angle = 0, tiltS = 0;
+  const wheel = $("#wheel"), tiltb = $("#tiltb");
+  function onMotion(e) {
+    const g = e.accelerationIncludingGravity;
+    if (!g || g.x == null || Math.hypot(g.x, g.y) < 3) return;   // telefono quasi piatto: si tiene l'ultimo valore
+    const a = Math.atan2(g.x, g.y);
+    if (zero === null) zero = a;
+    let d = zero - a;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    angle += (d - angle) * 0.5;                           // smorza il tremolio
+    let s = Math.max(-1, Math.min(1, angle / TILT_MAX));
+    if (Math.abs(s) < 0.08) s = 0;
+    tiltS = Math.round(s * 20) / 20;
+    wheel.style.rotate = `${Math.max(-1, Math.min(1, angle / TILT_MAX)) * 90}deg`;
+    if (steerId === null) {                               // un dito sui tasti ha la precedenza
+      st.s = tiltS;
+      L.classList.toggle("on", st.s < -0.15); R.classList.toggle("on", st.s > 0.15);
+      send();
+    }
+  }
+  async function setTilt(on) {
+    if (on && typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+      try { if (await DeviceMotionEvent.requestPermission() !== "granted") on = false; } catch { on = false; }   // iPhone: chiede il permesso
+      if (!on) say("Sensori non concessi: si sterza coi tasti.");
+    }
+    if (on && typeof DeviceMotionEvent === "undefined") { on = false; say("Questo telefono non ha i sensori di movimento."); }
+    if (on && conn) say("Collegato · tieni il telefono dritto: quello è il centro", true);
+    tilt = on; zero = null; angle = 0;
+    tiltb.classList.toggle("on", on); zone.classList.toggle("tilt", on);
+    tiltb.textContent = on ? "TASTI" : "INCLINA";
+    store.set("fango.tilt", on ? "1" : "");
+    if (on) addEventListener("devicemotion", onMotion);
+    else { removeEventListener("devicemotion", onMotion); if (steerId === null) { st.s = 0; L.classList.remove("on"); R.classList.remove("on"); send(); } }
+  }
+  tiltb.addEventListener("click", () => { fullscreen(); setTilt(!tilt); });
 
   function fullscreen() {
     const d = document.documentElement;
@@ -139,6 +181,8 @@
   }
 
   // ------------------------------------------------------------ avvio
+  // l'iPhone vuole un tocco per dare il permesso: lì si riaccende a mano
+  if (store.get("fango.tilt") && typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission !== "function") setTilt(true);
   $("#namein").value = store.get("fango.name");
   const fromHash = decodeURIComponent(location.hash.slice(1));
   if (fromHash) $("#codein").value = fromHash.toUpperCase();
