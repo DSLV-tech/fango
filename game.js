@@ -31,6 +31,17 @@
     },
   ];
 
+  // al contrario: stessi punti in ordine inverso (il traguardo resta su pts[0]) e zone
+  // specchiate sulla lunghezza del giro. Catmull-Rom è simmetrica, la strada è la stessa.
+  let rev = false;
+  function trackDef(no) {
+    const d = TRACKS[no];
+    if (!rev) return d;
+    return { ...d, pts: [d.pts[0], ...d.pts.slice(1).reverse()],
+      zones: d.zones.map((z) => (z.t === "jump" ? { t: z.t, f: 1 - z.f } : { t: z.t, a: 1 - z.b, b: 1 - z.a })) };
+  }
+  const trackTitle = (no) => TRACKS[no].name + (rev ? " al contrario" : "");
+
   function catmull(p0, p1, p2, p3, t) {
     const t2 = t * t, t3 = t2 * t;
     const f = (a, b, c, d) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
@@ -271,8 +282,30 @@
   const lastRound = () => trackNo === TRACKS.length - 1;
   let phase = "lobby", clock = 0, raceTime = 0, countdown = 0, finishedAt = 0, pickupTimer = 0, resultsTimer = 0;
 
+  // record del giro per pista e verso, salvati sulla TV, solo per chi guida davvero
+  const REC = "fango.records";
+  const records = {};
+  try {
+    const r = JSON.parse(localStorage.getItem(REC) || "{}");
+    for (const [k, v] of Object.entries(r && typeof r === "object" ? r : {}))
+      if (v && Number.isFinite(v.t) && v.t > 0 && typeof v.name === "string") records[k] = { t: v.t, name: v.name.slice(0, 12) };
+  } catch { /* niente archivio: i record valgono finché resta aperta la pagina */ }
+  const recKey = (no) => TRACKS[no].name + (rev ? " ↺" : "");
+  let newRecord = null, recFlash = 0;     // il record battuto in questa gara
+
+  function lapDone(c, t) {
+    c.best = Math.min(c.best, t);
+    if (!Net.input(c.i) || t < 3) return;
+    const k = recKey(trackNo), r = records[k];
+    if (r && r.t <= t) return;
+    records[k] = { t, name: nameOf(c.i) }; newRecord = records[k];
+    try { localStorage.setItem(REC, JSON.stringify(records)); } catch { /* modalità privata */ }
+    recFlash = 3; sfx("record"); Net.rumble(c.i, 150);
+  }
+
   function setupRace() {
-    T = buildTrack(TRACKS[trackNo]);
+    T = buildTrack(trackDef(trackNo));
+    newRecord = null; recFlash = 0;
     bg = paintTrack(T);
     skid = document.createElement("canvas"); skid.width = W * S; skid.height = H * S;
     skidG = skid.getContext("2d"); skidG.scale(S, S);
@@ -284,11 +317,15 @@
       return {
         i, x, y, a: Math.atan2(T.ty[j], T.tx[j]), vx: 0, vy: 0, z: 0, vz: 0,
         idx: j, lap: -1, prog: 0, nitro: 3, boost: 0, nPrev: 0, done: false, time: 0, place: i + 1,
-        ai: { off: (Math.random() * 2 - 1) * 0.4, skill: 0.86 + i * 0.03 + Math.random() * 0.04, look: 12 + (i % 2) * 3 },
+        ai: { off: (Math.random() * 2 - 1) * 0.4, skill: 0.86 + i * 0.03 + Math.random() * 0.04, look: 12 + (i % 2) * 3, ncd: 0 },
         bump: 0, color: sl.color, steer: 0,
+        maxLap: -1, lapT: 0, best: Infinity,          // giri cronometrati
+        rubber: 1, behind: 0,                           // rimonta: moltiplica l'accelerazione
+        spin: 0, spinV: 0, ghost: 0, chkProg: 0, chkT: 0,
+        passT: new Float64Array(T.N).fill(NaN),         // quando è passata da ogni punto della pista: i distacchi
       };
     });
-    for (const c of cars) { c.prog = progress(c); }
+    for (const c of cars) { c.prog = c.chkProg = progress(c); }
   }
 
   function progress(c) { return (c.lap) * T.L + c.idx * T.step; }
@@ -302,17 +339,43 @@
     const speed = Math.hypot(c.vx, c.vy);
     // curva stretta più avanti: si alza il piede
     const far = (c.idx + 28) % T.N, bend = Math.abs(Math.atan2(T.tx[c.idx] * T.ty[far] - T.ty[c.idx] * T.tx[far], T.tx[c.idx] * T.tx[far] + T.ty[c.idx] * T.ty[far]));
-    const limit = (190 - bend * 75) * c.ai.skill;
+    const limit = (190 - bend * 75) * c.ai.skill * c.rubber;
     const straight = bend < 0.25 && Math.abs(da) < 0.2;
+    // nitro con un motivo: un'auto poco davanti da passare, un distacco da recuperare,
+    // o l'ultimo giro per non portarsi a casa le bombolette. Mai mentre si lascia rientrare il gruppo.
+    c.ai.ncd -= 1 / 120;
+    const target = cars.some((o) => o !== c && o.prog > c.prog && o.prog - c.prog < 50);
+    const why = target || c.behind > 0.15 * T.L || c.lap === LAPS - 1;
+    const nitro = straight && speed > 80 && c.nitro > 0 && c.boost <= 0 && c.ai.ncd <= 0 && c.rubber >= 1 && why;
+    if (nitro) c.ai.ncd = 2.5;
     // incastrata contro il bordo: un po' di retromarcia sterzando al contrario
     if (speed < 8) c.ai.stuck = (c.ai.stuck || 0) + 1 / 120; else if (speed > 25) c.ai.stuck = 0;
     if (c.ai.stuck > 0.8) { c.ai.back = 0.7; c.ai.stuck = 0; }
     if (c.ai.back > 0) { c.ai.back -= 1 / 120; return { s: -Math.sign(da) || 1, g: 0, r: 1, n: 0 }; }
-    return { s: Math.max(-1, Math.min(1, da * 3)), g: speed < limit && Math.abs(da) < 1.2 ? 1 : 0, r: 0, n: straight && speed > 80 && c.nitro > 0 && Math.random() < 0.01 ? 1 : 0 };
+    return { s: Math.max(-1, Math.min(1, da * 3)), g: speed < limit && Math.abs(da) < 1.2 ? 1 : 0, r: 0, n: nitro ? 1 : 0 };
+  }
+
+  // rimonta soft: chi guida ed è staccato accelera fino al 14% in più; l'IA molto
+  // davanti al primo dei giocatori rallenta fino al 12%. Senza giocatori, nulla cambia.
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+  function rubberBand() {
+    const lead = Math.max(...cars.map((c) => c.prog));
+    const humans = cars.filter((c) => Net.human(c.i) && !c.done);
+    const best = humans.length ? Math.max(...humans.map((c) => c.prog)) : null;
+    for (const c of cars) {
+      c.behind = lead - c.prog; c.rubber = 1;
+      if (c.done) continue;
+      if (Net.human(c.i)) c.rubber = 1 + 0.14 * clamp01((c.behind - 0.05 * T.L) / (0.4 * T.L));
+      else if (best !== null) c.rubber = 1 - 0.12 * clamp01((c.prog - best - 0.1 * T.L) / (0.4 * T.L));
+    }
   }
 
   function updateCar(c, inp, dt) {
-    if (c.done) inp = { s: 0, g: 0, r: 0, n: 0 };
+    c.ghost = Math.max(0, c.ghost - dt);
+    // testacoda dopo un urto di fianco: l'auto gira su sé stessa e non risponde ai comandi
+    const spin = c.spin > 0;
+    if (spin) { c.spin -= dt; c.a += c.spinV * dt; c.spinV *= Math.exp(-2.5 * dt); }
+    if (c.done || spin) inp = { s: 0, g: 0, r: 0, n: 0 };
     const sf = SURFACE[T.surf[c.idx]];
     const air = c.z > 0.5;
     const fx = Math.cos(c.a), fy = Math.sin(c.a);
@@ -334,14 +397,14 @@
     c.a += c.steer * P.turn * turnScale * dt * (fwd < -5 ? -1 : 1);
 
     if (!air) {
-      let acc = inp.g ? P.accel * sf.acc : 0;
+      let acc = inp.g ? P.accel * sf.acc * c.rubber : 0;
       // retromarcia: prima frena, poi va indietro piano
       if (inp.r && !inp.g) acc = fwd > 10 ? -P.accel * 1.6 : fwd > -P.reverse ? -P.accel * 0.55 * sf.acc : 0;
       if (c.boost > 0) acc += P.nitroAccel;
       if (!inp.g && !inp.r && c.boost <= 0) fwd *= Math.exp(-1.2 * dt);   // freno motore
       fwd += acc * dt;
       fwd *= Math.exp(-P.drag * sf.drag * dt);
-      lat *= Math.exp(-P.grip * sf.grip * dt);
+      lat *= Math.exp(-P.grip * sf.grip * (spin ? 0.15 : 1) * dt);
       const nx = Math.cos(c.a), ny = Math.sin(c.a);
       c.vx = nx * fwd - ny * lat; c.vy = ny * fwd + nx * lat;
     } else {
@@ -385,10 +448,13 @@
     const half = T.N / 2;
     if (prevIdx > half && c.idx < half && prevIdx - c.idx > half) {
       c.lap++;
+      // un giro conta solo la prima volta: tornare indietro sul traguardo e ripassarlo no
+      if (c.lap > c.maxLap) { if (c.lap > 0 && c.lap <= LAPS) lapDone(c, raceTime - c.lapT); c.maxLap = c.lap; c.lapT = raceTime; }
       if (c.lap >= LAPS && !c.done) { c.done = true; c.time = raceTime; sfx("finish"); Net.rumble(c.i, 200); if (!finishedAt) finishedAt = raceTime; }
       else if (c.lap > 0) Net.rumble(c.i, 30);
     } else if (c.idx > half && prevIdx < half && c.idx - prevIdx > half) c.lap--;
     c.prog = progress(c);
+    c.passT[c.idx] = raceTime;              // anche col nitro si fanno meno di STEP px per passo: nessun punto saltato
 
     // segni e polvere
     if (!air) {
@@ -412,7 +478,7 @@
   function collide() {
     for (let a = 0; a < cars.length; a++) for (let b = a + 1; b < cars.length; b++) {
       const A = cars[a], B = cars[b];
-      if (Math.abs(A.z - B.z) > 8) continue;
+      if (Math.abs(A.z - B.z) > 8 || A.ghost > 0 || B.ghost > 0) continue;
       const dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy), min = P.r * 2;
       if (d >= min || d === 0) continue;
       const nx = dx / d, ny = dy / d, push = (min - d) / 2;
@@ -422,8 +488,32 @@
         const j = -rel * 0.8;
         A.vx -= nx * j; A.vy -= ny * j; B.vx += nx * j; B.vy += ny * j;
         if (-rel > 40) { sfx("bump", -rel); Net.rumble(A.i, 40); Net.rumble(B.i, 40); }
+        // colpita forte di fianco: testacoda breve. Chi colpisce di muso non gira.
+        if (-rel > 70) for (const [X, s] of [[A, 1], [B, -1]]) {
+          const fx = Math.cos(X.a), fy = Math.sin(X.a), ux = nx * s, uy = ny * s;   // u: dall'auto verso l'altra
+          const side = -ux * fy + uy * fx, front = ux * fx + uy * fy;
+          if (Math.abs(side) < 0.75 || X.spin > 0 || X.z > 1) continue;
+          X.spin = 0.55; X.spinV = (front >= 0 ? -1 : 1) * Math.sign(side) * Math.min(12, 6 + (-rel - 70) / 15);
+          Net.rumble(X.i, 120); burst(X.x + ux * P.r, X.y + uy * P.r, 8, "#e8e0d0", 50);
+        }
       }
     }
+  }
+
+  // incastrata: 4 s senza avanzare e quasi ferma → di nuovo in mezzo alla strada, un po'
+  // più indietro su terra buona e libera, e per un attimo attraversabile dalle altre.
+  // Non si torna mai oltre il traguardo, così il conto dei giri non cambia.
+  function unstick(c) {
+    if (c.done || c.z > 0) return;
+    if (c.prog > c.chkProg + 24) { c.chkProg = c.prog; c.chkT = raceTime; return; }
+    if (raceTime - c.chkT < 4 || Math.hypot(c.vx, c.vy) > 25) return;
+    const busy = (j) => cars.some((o) => o !== c && Math.hypot(o.x - T.x[j], o.y - T.y[j]) < 16);
+    let j = c.idx;
+    for (let k = 0; k < 40 && j > 0 && (T.surf[j] || T.jump[j] || busy(j)); k++) j--;
+    burst(c.x, c.y, 10, T.def.dirt, 50);
+    Object.assign(c, { x: T.x[j], y: T.y[j], a: Math.atan2(T.ty[j], T.tx[j]), vx: 0, vy: 0, steer: 0, spin: 0, idx: j, ghost: 1.5 });
+    c.prog = c.chkProg = progress(c); c.chkT = raceTime; c.ai.stuck = c.ai.back = 0;
+    Net.rumble(c.i, 80);
   }
 
   // ------------------------------------------------------------ nitro sulla pista
@@ -466,6 +556,7 @@
   const CAR_SIZE = 21.5;
   function drawCar(c) {
     const lift = c.z;
+    if (c.ghost > 0) ctx.globalAlpha = Math.sin(c.ghost * 25) > 0 ? 0.35 : 0.8;   // appena rimessa in pista
     // ombra
     ctx.save(); ctx.translate(c.x + 2 + lift * 0.35, c.y + 3 + lift * 0.5); ctx.rotate(c.a);
     ctx.fillStyle = `rgba(0,0,0,${0.4 - Math.min(0.25, lift / 120)})`;
@@ -483,6 +574,7 @@
       ctx.drawImage(ART.auto, c.i * CELL, 0, CELL, CELL, -CAR_SIZE / 2, -CAR_SIZE / 2, CAR_SIZE, CAR_SIZE);
     } else { ctx.fillStyle = c.color; ctx.fillRect(-9, -5.5, 18, 11); }
     ctx.restore();
+    ctx.globalAlpha = 1;
   }
 
   function draw() {
@@ -547,6 +639,7 @@
       hit: () => noise(0.12, Math.min(0.3, v / 300), 300),
       bump: () => noise(0.1, Math.min(0.25, v / 300), 500),
       land: () => noise(0.15, 0.2, 200),
+      record: () => [784, 988, 1175, 1568].forEach((f, k) => setTimeout(() => tone(f, 0.12, "square", 0.09), k * 70)),
       finish: () => [523, 659, 784, 1046].forEach((f, k) => setTimeout(() => tone(f, 0.18, "square", 0.1), k * 110)),
     })[name]?.();
   }
@@ -554,7 +647,7 @@
     if (!engines) return;
     for (let i = 0; i < 4; i++) {
       const c = cars[i], e = engines[i];
-      const on = c && phase !== "lobby" && Net.human(i);
+      const on = c && phase !== "lobby" && phase !== "pause" && Net.human(i);
       const sp = c ? Math.hypot(c.vx, c.vy) : 0;
       e.g.gain.setTargetAtTime(on ? 0.035 + (c.boost > 0 ? 0.03 : 0) : 0, ac.currentTime, 0.1);
       e.o.frequency.setTargetAtTime(38 + sp * 0.55 + (c && c.z > 0 ? 25 : 0) + i * 3, ac.currentTime, 0.05);
@@ -562,13 +655,17 @@
   }
 
   // ------------------------------------------------------------ interfaccia (DOM)
-  const ui = { lobby: $("#lobby"), hud: $("#hud"), count: $("#count"), results: $("#results") };
+  const ui = { lobby: $("#lobby"), hud: $("#hud"), rec: $("#rec"), count: $("#count"), pause: $("#pause"), results: $("#results") };
   const fmt = (t) => { const m = Math.floor(t / 60), s = t - m * 60; return `${m}:${s.toFixed(2).padStart(5, "0")}`; };
   const ord = (n) => n + "°";
 
   function renderLobby() {
-    $("#tname").textContent = TRACKS[trackNo].name;
+    $("#tname").textContent = trackTitle(trackNo);
     $("#tnum").textContent = TRACKS.length;
+    $("#recs").innerHTML = (rev ? "Record del giro, al contrario: " : "Record del giro: ") + TRACKS.map((t, no) => {
+      const r = records[recKey(no)];
+      return `${escape(t.name)} <b>${r ? `${fmt(r.t)} ${escape(r.name)}` : "—"}</b>`;
+    }).join(" · ");
     $("#code").textContent = Net.code || "····";
     const url = Net.padUrl();
     $("#url").textContent = url.replace(/^https?:\/\//, "") + (Net.code ? "#" + Net.code : "");
@@ -610,7 +707,11 @@
         + `<small>${c.done ? fmt(c.time) : `giro ${lap}/${LAPS}`}</small><em>nitro <u>${bar}</u></em></div>`;
     }).join("");
     if (rows !== hudKey) { ui.hud.innerHTML = rows; hudKey = rows; }
+    const r = records[recKey(trackNo)];
+    const rec = r ? `${recFlash > 0 ? "Nuovo record del giro!" : "Record del giro"} <b>${fmt(r.t)}</b> ${escape(r.name)}` : "Nessun record su questa pista: fai tu il primo";
+    if (rec !== recHtml) { ui.rec.innerHTML = rec; recHtml = rec; ui.rec.classList.toggle("new", recFlash > 0); }
   }
+  let recHtml = "";
   const escape = (s) => s.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
 
   // classifica della coppa: punti, a pari punti conta l'ultima gara
@@ -619,21 +720,26 @@
   function renderResults() {
     const order = standings();
     const top = lastRound() ? order[0] : cars.find((c) => c.place === 1);
-    $("#rround").textContent = lastRound() ? `Coppa finita · ${TRACKS.length} piste` : `Gara ${trackNo + 1} di ${TRACKS.length} · ${TRACKS[trackNo].name}`;
+    $("#rround").textContent = lastRound() ? `Coppa finita · ${TRACKS.length} piste` : `Gara ${trackNo + 1} di ${TRACKS.length} · ${trackTitle(trackNo)}`;
     $("#rtitle").textContent = lastRound() ? `${nameOf(top.i)} vince la coppa!` : `Vince ${nameOf(top.i)}!`;
     $("#rwin").style.setProperty("--p", top.i); $("#rwin").style.setProperty("--c", top.color);
     $("#rlist").innerHTML = order.map((c, k) =>
       `<li style="--c:${c.color};--p:${c.i}"><b>${ord(k + 1)}</b><i class="face"></i><span>${escape(nameOf(c.i))}</span>`
-      + `<small>${ord(c.place)} in gara · ${c.done ? fmt(c.time) : "non arrivato"}</small>`
+      + `<small>${ord(c.place)} in gara · ${c.done ? fmt(c.time) : "non arrivato"}${c.best < Infinity ? ` · giro ${fmt(c.best)}` : ""}</small>`
       + `<strong>${cupPts[c.i]} pt<em>+${cupGain[c.i]}</em></strong></li>`).join("");
+    $("#rrec").hidden = !newRecord;
+    if (newRecord) $("#rrec").textContent = `Nuovo record del giro su ${trackTitle(trackNo)}: ${newRecord.name}, ${fmt(newRecord.t)}`;
   }
 
   function show(name) {
-    for (const [k, el] of Object.entries(ui)) el.hidden = !(k === name || (name === "race" && k === "hud") || (name === "count" && k === "hud"));
+    const onTrack = ["race", "count", "pause"].includes(name);
+    for (const [k, el] of Object.entries(ui)) el.hidden = !(k === name || (onTrack && (k === "hud" || k === "rec")));
   }
 
   // ------------------------------------------------------------ flusso
-  function newCup() { trackNo = 0; cupPts = [0, 0, 0, 0]; cupGain = [0, 0, 0, 0]; }
+  // una coppa sì e una no le piste si corrono al contrario
+  let cups = 0;
+  function newCup() { trackNo = 0; cupPts = [0, 0, 0, 0]; cupGain = [0, 0, 0, 0]; rev = cups++ % 2 === 1; }
   function toLobby() {
     phase = "lobby"; Net.setPhase("lobby");
     newCup(); setupRace();
@@ -657,6 +763,21 @@
     order.forEach((c, k) => (c.place = k + 1));
   }
 
+  // distacco in secondi: quando l'auto davanti è passata dal punto dove ora è quella dietro
+  function gap(ahead, back) {
+    const d = ahead.prog - back.prog;
+    if (d >= T.L) { const n = Math.floor(d / T.L); return n === 1 ? "1 giro" : `${n} giri`; }
+    const t = raceTime - ahead.passT[back.idx];
+    return t >= 0 ? `${t.toFixed(1)} s` : "";
+  }
+  function gapText(c) {
+    if (c.done) return `arrivato · ${fmt(c.time)}`;
+    const byPlace = [...cars].sort((a, b) => a.place - b.place);
+    if (c.place === 1) { const g = byPlace[1] && gap(c, byPlace[1]); return g ? `davanti di ${g}` : ""; }
+    const a = byPlace[c.place - 2], g = gap(a, c);
+    return g ? `a ${g} da ${nameOf(a.i)}` : "";
+  }
+
   let hudTimer = 0;
   function phoneHud(dt) {
     hudTimer -= dt;
@@ -664,18 +785,35 @@
     hudTimer = 0.25;
     for (const c of cars) {
       if (!Net.human(c.i)) continue;
-      const text = phase === "lobby" ? `${TRACKS[trackNo].name} · premi START per partire`
+      const lap = `giro ${Math.max(1, Math.min(LAPS, c.lap + 1))}/${LAPS}`;
+      const text = phase === "lobby" ? `${trackTitle(trackNo)} · premi START per partire`
         : phase === "results" ? `${ord(c.place)} in gara · coppa ${ord(standings().indexOf(c) + 1)}, ${cupPts[c.i]} pt · START ${lastRound() ? "nuova coppa" : "prossima pista"}`
+        : phase === "pause" ? "Pausa · START per riprendere"
         : c.done ? `Arrivato ${ord(c.place)} · ${fmt(c.time)}`
-        : `${ord(c.place)} · giro ${Math.max(1, c.lap + 1)}/${LAPS}`;
-      Net.hud(c.i, text, c.nitro);
+        : `${ord(c.place)} · ${lap}`;
+      // in gara il telefono mostra in grande posizione e distacco
+      const big = phase === "race" || phase === "pause" ? { pos: ord(c.place), gap: gapText(c), lap: c.done ? "" : lap } : null;
+      Net.hud(c.i, text, c.nitro, big);
     }
+  }
+
+  // pausa: START da chi guida (o Invio) e Esc sulla TV
+  let escEdge = false;
+  addEventListener("keydown", (e) => { if (e.code === "Escape" && !e.repeat) escEdge = true; });
+  function togglePause() {
+    phase = phase === "race" ? "pause" : "race";
+    Net.setPhase(phase === "pause" ? "pause" : "race");
+    show(phase); sfx("beep");
   }
 
   function tick(dt) {
     Net.poll();
     clock += dt;
-    if (phase === "lobby") {
+    const esc = escEdge; escEdge = false;
+    if ((phase === "race" || phase === "pause") && (Net.start || esc)) togglePause();
+    if (phase === "pause") {
+      // fermo tutto: niente fisica, niente cronometro
+    } else if (phase === "lobby") {
       if (Net.start) toCount();
     } else if (phase === "count") {
       const before = Math.ceil(countdown);
@@ -688,8 +826,11 @@
       renderHud();
     } else if (phase === "race") {
       raceTime += dt;
+      recFlash = Math.max(0, recFlash - dt);
+      rubberBand();
       for (const c of cars) updateCar(c, Net.input(c.i) || aiInput(c), dt);
       collide();
+      for (const c of cars) unstick(c);
       updatePickups(dt);
       rank();
       renderHud();
@@ -700,7 +841,7 @@
       resultsTimer -= dt;
       const wait = `tra ${Math.ceil(resultsTimer)} s si torna alla sala d'attesa`;
       $("#rnext").textContent = lastRound() ? `START per una nuova coppa, o ${wait}`
-        : `Prossima pista: ${TRACKS[trackNo + 1].name} — START per partire, o ${wait} (e la coppa ricomincia)`;
+        : `Prossima pista: ${TRACKS[trackNo + 1].name}${rev ? " al contrario" : ""} — START per partire, o ${wait} (e la coppa ricomincia)`;
       if (Net.start) { if (lastRound()) newCup(); else trackNo++; toCount(); }
       else if (resultsTimer <= 0) toLobby();
     }
@@ -720,7 +861,8 @@
   }
 
   // per i test dal browser
-  window.Fango = { TRACKS, buildTrack, get cars() { return cars; }, get phase() { return phase; }, get track() { return T; }, start: () => toCount() };
+  window.Fango = { TRACKS, buildTrack, get cars() { return cars; }, get phase() { return phase; }, get track() { return T; }, get raceTime() { return raceTime; }, records,
+    get rev() { return rev; }, set rev(v) { rev = !!v; }, setupRace, start: () => toCount() };
 
   loadArt().then(() => { toLobby(); requestAnimationFrame(frame); });
 })();

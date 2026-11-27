@@ -65,6 +65,19 @@
       -webkit-text-stroke: .9cqw #5a2410; paint-order: stroke fill; pointer-events: none;
       text-shadow: 0 0 0 #fbefd9, .35cqw .35cqw 0 #fbefd9, -.35cqw .35cqw 0 #fbefd9, .35cqw -.35cqw 0 #fbefd9, -.35cqw -.35cqw 0 #fbefd9, .9cqw .9cqw 0 rgba(0,0,0,.45); }
 
+    #lobby .recs { margin: 1.6cqw 0 0; font-size: 1.5cqw; color: var(--dim); font-style: normal; }
+    #lobby .recs b { color: var(--ink); }
+    #rec { position: absolute; left: 2cqw; bottom: 1.4cqw; padding: .4cqw 1.1cqw; border-radius: .4cqw; background: var(--panel); pointer-events: none;
+      font-size: 1.4cqw; font-style: italic; text-transform: uppercase; color: var(--dim); box-shadow: 0 .3cqw .8cqw rgba(0,0,0,.4); }
+    #rec b { color: var(--ink); font-size: 1.7cqw; }
+    #rec.new { color: #2a1600; background: var(--warm); animation: flash .3s steps(2) 6; }
+    #rec.new b { color: #2a1600; }
+    @keyframes flash { 50% { filter: brightness(1.4); } }
+    @media (prefers-reduced-motion: reduce) { #rec.new { animation: none; } }
+    #pause { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; background: rgba(18,10,5,.6); font-style: italic; }
+    #pause b { font-size: 12cqw; font-weight: 900; line-height: 1; color: var(--warm); -webkit-text-stroke: .6cqw #5a2410; paint-order: stroke fill; }
+    #pause small { font-size: 2.2cqw; color: var(--ink); }
+    #rrec { margin: 1.2cqw 0 0; font-size: 2cqw; color: var(--warm); width: 56cqw; }
     #results { position: absolute; inset: 0; display: grid; grid-template-columns: auto auto; place-content: center; align-items: center; gap: 4cqw;
       background: rgba(18,10,5,.88); font-style: italic; }
     #rwin { width: 24cqw; border-radius: 2cqw; border: .5cqw solid var(--c); background-color: color-mix(in srgb, var(--c) 25%, rgba(0,0,0,.5)); }
@@ -91,8 +104,9 @@
         <p class="sub">Corse fuoristrada per 4 sul divano</p>
         <p class="track">Coppa su <span id="tnum"></span> piste, 3 giri l'una · si parte da <b id="tname"></b></p>
         <div id="slots"></div>
+        <p class="recs" id="recs"></p>
         <p class="go">Premi <b>START</b> sul telefono</p>
-        <p class="keys">O Invio sulla TV. I posti vuoti li guida il computer · Tastiera: frecce (↑ avanti, ↓ retro, Shift destro nitro) o W A S D (Q nitro) · Gamepad: A avanti, B retro, X nitro</p>
+        <p class="keys">O Invio sulla TV. I posti vuoti li guida il computer · Tastiera: frecce (↑ avanti, ↓ retro, Shift destro nitro) o W A S D (Q nitro) · Gamepad: A avanti, B retro, X nitro · In gara START o Esc mettono in pausa</p>
       </div>
       <div class="join">
         <div id="qr"></div>
@@ -105,7 +119,9 @@
     </section>
 
     <div id="hud" hidden></div>
+    <div id="rec" hidden></div>
     <div id="count" hidden></div>
+    <div id="pause" hidden><b>PAUSA</b><small>START o Esc per riprendere</small></div>
 
     <section id="results" hidden>
       <i id="rwin" class="face"></i>
@@ -113,6 +129,7 @@
         <p id="rround"></p>
         <h2 id="rtitle"></h2>
         <ol id="rlist"></ol>
+        <p id="rrec" hidden></p>
         <p id="rnext"></p>
       </div>
     </section>
@@ -120,7 +137,7 @@
 
   <script src="vendor/qrcode.js"></script>
   <script src="vendor/peerjs.min.js"></script>
-  <script src="net.js?v=7"></script>
-  <script src="game.js?v=13"></script>
+  <script src="net.js?v=8"></script>
+  <script src="game.js?v=14"></script>
 </body>
 </html>

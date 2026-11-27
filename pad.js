@@ -66,13 +66,25 @@
       if (d.full) say("La gara è piena (4 piloti).");
       if (typeof d.hud === "string") {
         $("#hud").textContent = d.hud.slice(0, 80);
-        $("#startb").hidden = d.phase === "race";
+        // in gara START mette in pausa
+        $("#startb").textContent = d.phase === "race" ? "PAUSA" : d.phase === "pause" ? "RIPRENDI" : "START";
+        showBig(d.big);
       }
       if (Number.isInteger(d.nitro)) showNitro(Math.max(0, Math.min(9, d.nitro)));
       if (Number.isFinite(d.v) && canVibrate) navigator.vibrate(Math.min(300, d.v));
     });
     c.on("close", () => { if (conn === c || !conn) { conn = null; say("TV scollegata: riprovo…"); again(); } });
     c.on("error", () => {});
+  }
+
+  // in gara, dietro ai comandi: posizione e distacco in grande
+  const big = $("#big"), str = (v, n) => (typeof v === "string" ? v.slice(0, n) : "");
+  function showBig(b) {
+    big.hidden = !b || typeof b !== "object";
+    if (big.hidden) return;
+    big.querySelector("b").textContent = str(b.pos, 3);
+    big.querySelector("span").textContent = str(b.gap, 40);
+    big.querySelector("small").textContent = str(b.lap, 12);
   }
 
   // le bombolette rimaste, come tacche sul tasto NITRO

@@ -11,7 +11,17 @@ basta inquadrare il QR. I posti vuoti li guida il computer.
   conta l'ultima gara; tornando alla sala d'attesa la coppa ricomincia
 - salti, fango, acqua e dossi che cambiano aderenza e velocità
 - nitro: 3 a testa, altre bombolette compaiono sulla pista
-- urti tra auto, vibrazione sul telefono a urti, atterraggi e traguardo
+- urti tra auto, vibrazione sul telefono a urti, atterraggi e traguardo; chi viene
+  colpito forte di fianco fa un breve testacoda
+- una coppa sì e una no le piste si corrono al contrario
+- record del giro per pista e verso, salvati sulla TV col nome di chi l'ha fatto
+  (contano solo i giri di chi guida davvero, non del computer)
+- rimonta soft: chi guida ed è staccato accelera un po' di più, il computer molto
+  davanti al primo giocatore rallenta; il computer usa il nitro per sorpassare,
+  rimontare o nell'ultimo giro
+- un'auto incastrata per 4 s torna in mezzo alla pista, poco più indietro
+- pausa in gara: START (sul telefono diventa PAUSA) o Esc sulla TV
+- in gara il telefono mostra in grande posizione, distacco e giro
 
 ## Giocare
 
@@ -37,7 +47,7 @@ un computer collegato alla TV) e segui i passi 2 e 3. Per provarlo in locale:
 | Avanti | ▲ AVANTI | ↑ / W | A o RT |
 | Retromarcia (prima frena) | ▼ RETRO | ↓ / S | B o LT |
 | Nitro | NITRO | Shift destro / Q | X o RB |
-| Partenza | START | Invio | Start |
+| Partenza / pausa | START | Invio (pausa anche Esc) | Start |
 
 Serve Internet: il server pubblico di PeerJS presenta i telefoni alla TV, poi i
 comandi viaggiano diretti (WebRTC). Chi si scollega a metà gara ritrova la sua

@@ -57,6 +57,16 @@
     #state i { width: 8px; height: 8px; border-radius: 50%; background: var(--warm); }
     #state.on i { background: #7ad38a; }
 
+    /* in gara: i comandi si stringono e al centro resta una colonna con posizione e distacco in grande */
+    #big { position: absolute; left: 37%; right: 45%; top: 70px; bottom: max(14px, env(safe-area-inset-bottom)); pointer-events: none;
+      display: grid; align-content: center; justify-items: center; text-align: center; font-style: italic; }
+    #big b { font-size: min(42vh, 13vw); font-weight: 900; line-height: .85; color: var(--c); -webkit-text-stroke: .6vh rgba(0,0,0,.55); paint-order: stroke fill;
+      text-shadow: 0 .8vh 0 rgba(0,0,0,.45); }
+    #big span { margin-top: 1vh; font-size: min(8vh, 3.1vw); font-weight: 900; line-height: 1.05; color: var(--ink); }
+    #big small { font-size: min(5.5vh, 2.2vw); color: var(--dim); text-transform: uppercase; }
+    #big:not([hidden]) ~ #steer { width: 37%; }
+    #big:not([hidden]) ~ .right { width: 45%; grid-template-columns: 1.2fr 1fr; }
+
     /* sterzo: metà sinistra, il pollice scorre tra ◀ e ▶ */
     #steer { position: absolute; left: 0; top: 0; bottom: 0; width: 46%; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: center;
       padding: 84px 7px max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left)); }
@@ -105,6 +115,7 @@
       <div class="who"><i class="face"></i><span id="me">…</span><span id="hud"></span></div>
       <div class="btns"><button id="startb">START</button><button id="tiltb">INCLINA</button></div>
     </div>
+    <div id="big" hidden><b></b><span></span><small></small></div>
     <div id="state"><i></i><span></span></div>
     <div id="steer"><div class="key" data-dir="-1">◀</div><div class="key" data-dir="1">▶</div><img id="wheel" src="img/volante.webp" alt=""></div>
     <div class="right">
@@ -116,6 +127,6 @@
   <div id="turn">Gira il telefono in orizzontale ⟲</div>
 
   <script src="vendor/peerjs.min.js"></script>
-  <script src="pad.js?v=6"></script>
+  <script src="pad.js?v=8"></script>
 </body>
 </html>

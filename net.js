@@ -8,7 +8,9 @@
 //   { s, g, r, n, k }         sterzo da -1 a 1, avanti, retromarcia, nitro, start (0/1)
 // TV → telefono:
 //   { you: { slot, name, color } }   il posto assegnato (slot = auto e pilota)
-//   { hud: "testo", phase, nitro }   posizione, giro e bombolette, ogni 250 ms
+//   { hud: "testo", phase, nitro, big }   posizione, giro e bombolette, ogni 250 ms;
+//                                    big = { pos, gap, lap } solo in gara e in pausa
+//                                    (phase: lobby, race, pause, results)
 //   { v: ms }                        vibrazione
 //
 // Il server pubblico di PeerJS serve solo a presentare i dispositivi: poi i
@@ -178,7 +180,7 @@
       phase = p;
       if (p === "lobby") for (const s of sources.values()) if (!s.live) release(s);
     },
-    hud(i, text, nitro) { const s = bySlot(i); if (s?.conn?.open) s.conn.send({ hud: text, phase, nitro }); },
+    hud(i, text, nitro, big) { const s = bySlot(i); if (s?.conn?.open) s.conn.send({ hud: text, phase, nitro, big }); },
     rumble(i, ms) { const s = bySlot(i); if (s?.conn?.open) s.conn.send({ v: ms }); },
     onChange(f) { listeners.push(f); },
   };
