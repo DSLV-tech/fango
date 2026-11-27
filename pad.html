@@ -41,11 +41,13 @@
       padding: 90px 10px max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
     #steer div { border-radius: 22px; border: 3px solid var(--line); background: var(--btn); display: grid; place-content: center; font-size: 46px; color: var(--dim); }
     #steer div.on { border-color: var(--c); color: var(--ink); background: color-mix(in srgb, var(--c) 30%, var(--btn)); }
-    .right { position: absolute; right: 0; top: 0; bottom: 0; width: 46%; display: grid; grid-template-rows: 1fr 1.6fr; gap: 10px;
+    .right { position: absolute; right: 0; top: 0; bottom: 0; width: 46%; display: grid; grid-template-rows: 1fr 1.8fr; grid-template-columns: 1fr 1.7fr; gap: 10px;
       padding: 90px max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) 10px; }
     .right button { border-radius: 22px; border: 3px solid var(--line); background: var(--btn); font-weight: 900; font-style: italic; font-size: 26px; letter-spacing: .04em; }
     #gas { border-color: var(--c) !important; font-size: 34px !important; }
-    #nitro { color: #7fe0ff; }
+    #nitro { color: #7fe0ff; grid-column: span 2; }
+    #rev { font-size: 20px !important; color: var(--dim); }
+    .right button small { display: block; font-size: 30px; line-height: 1; font-style: normal; }
     .right button.on { background: color-mix(in srgb, var(--c) 35%, var(--btn)); transform: scale(.97); }
     #turn { position: fixed; inset: 0; display: none; place-content: center; text-align: center; background: var(--bg); z-index: 5; color: var(--dim); padding: 16px; font-size: 20px; }
     @media (orientation: portrait) { #pad:not([hidden]) ~ #turn { display: grid; } }
@@ -72,8 +74,9 @@
     </div>
     <div id="steer"><div data-dir="-1">◀</div><div data-dir="1">▶</div></div>
     <div class="right">
-      <button id="nitro" data-key="n">NITRO</button>
-      <button id="gas" data-key="g">GAS</button>
+      <button id="nitro">NITRO</button>
+      <button id="rev"><small>▼</small>RETRO</button>
+      <button id="gas"><small>▲</small>AVANTI</button>
     </div>
   </section>
   <div id="turn">Gira il telefono in orizzontale ⟲</div>

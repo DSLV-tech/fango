@@ -174,7 +174,7 @@
 
   // ------------------------------------------------------------ auto
   const CPU_NAMES = ["Ruggine", "Bulldozer", "Polvere", "Trivella"];
-  const P = { accel: 310, drag: 1.65, nitroAccel: 380, nitroTime: 1.3, turn: 4.2, grip: 9, r: 6.5 };
+  const P = { accel: 310, drag: 1.65, nitroAccel: 380, nitroTime: 1.3, turn: 4.2, grip: 9, r: 6.5, reverse: 55 };
   const SURFACE = [
     { acc: 1, drag: 1, grip: 1 },            // terra
     { acc: 0.5, drag: 2.4, grip: 0.55 },     // fango
@@ -219,11 +219,15 @@
     const far = (c.idx + 28) % T.N, bend = Math.abs(Math.atan2(T.tx[c.idx] * T.ty[far] - T.ty[c.idx] * T.tx[far], T.tx[c.idx] * T.tx[far] + T.ty[c.idx] * T.ty[far]));
     const limit = (190 - bend * 75) * c.ai.skill;
     const straight = bend < 0.25 && Math.abs(da) < 0.2;
-    return { s: Math.max(-1, Math.min(1, da * 3)), g: speed < limit && Math.abs(da) < 1.2 ? 1 : 0, n: straight && speed > 80 && c.nitro > 0 && Math.random() < 0.01 ? 1 : 0 };
+    // incastrata contro il bordo: un po' di retromarcia sterzando al contrario
+    if (speed < 8) c.ai.stuck = (c.ai.stuck || 0) + 1 / 120; else if (speed > 25) c.ai.stuck = 0;
+    if (c.ai.stuck > 0.8) { c.ai.back = 0.7; c.ai.stuck = 0; }
+    if (c.ai.back > 0) { c.ai.back -= 1 / 120; return { s: -Math.sign(da) || 1, g: 0, r: 1, n: 0 }; }
+    return { s: Math.max(-1, Math.min(1, da * 3)), g: speed < limit && Math.abs(da) < 1.2 ? 1 : 0, r: 0, n: straight && speed > 80 && c.nitro > 0 && Math.random() < 0.01 ? 1 : 0 };
   }
 
   function updateCar(c, inp, dt) {
-    if (c.done) inp = { s: 0, g: 0, n: 0 };
+    if (c.done) inp = { s: 0, g: 0, r: 0, n: 0 };
     const sf = SURFACE[T.surf[c.idx]];
     const air = c.z > 0.5;
     const fx = Math.cos(c.a), fy = Math.sin(c.a);
@@ -240,8 +244,10 @@
 
     if (!air) {
       let acc = inp.g ? P.accel * sf.acc : 0;
+      // retromarcia: prima frena, poi va indietro piano
+      if (inp.r && !inp.g) acc = fwd > 10 ? -P.accel * 1.6 : fwd > -P.reverse ? -P.accel * 0.55 * sf.acc : 0;
       if (c.boost > 0) acc += P.nitroAccel;
-      if (!inp.g && c.boost <= 0) fwd *= Math.exp(-1.2 * dt);   // freno motore
+      if (!inp.g && !inp.r && c.boost <= 0) fwd *= Math.exp(-1.2 * dt);   // freno motore
       fwd += acc * dt;
       fwd *= Math.exp(-P.drag * sf.drag * dt);
       lat *= Math.exp(-P.grip * sf.grip * dt);

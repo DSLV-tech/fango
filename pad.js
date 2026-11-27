@@ -14,7 +14,7 @@
   const canVibrate = typeof navigator.vibrate === "function";
 
   let code = "", name = "", peer = null, conn = null, retry = 0;
-  const st = { s: 0, g: 0, n: 0, k: 0 };
+  const st = { s: 0, g: 0, r: 0, n: 0, k: 0 };
   let sent = "";
 
   const stateEl = $("#state"), stateTxt = $("#state span");
@@ -75,7 +75,7 @@
 
   function send(force) {
     if (!conn || !conn.open) return;
-    const key = `${st.s},${st.g},${st.n},${st.k}`;
+    const key = `${st.s},${st.g},${st.r},${st.n},${st.k}`;
     if (!force && key === sent) return;
     sent = key;
     conn.send({ ...st });
@@ -88,7 +88,7 @@
     try { lock = await navigator.wakeLock.request("screen"); lock.addEventListener("release", () => { lock = null; }); } catch { /* non concesso */ }
   }
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) { st.s = st.g = st.n = st.k = 0; send(); }
+    if (document.hidden) { st.s = st.g = st.r = st.n = st.k = 0; send(); }
     else { awake(); if (!conn && code) connect(); }
   });
 
@@ -107,6 +107,7 @@
     for (const ev of ups) el.addEventListener(ev, (e) => { if (e.pointerId !== id) return; id = null; el.classList.remove("on"); off(); send(); });
   }
   hold($("#gas"), () => (st.g = 1), () => (st.g = 0));
+  hold($("#rev"), () => (st.r = 1), () => (st.r = 0));
   hold($("#nitro"), () => (st.n = 1), () => (st.n = 0));
   hold($("#startb"), () => (st.k = 1), () => (st.k = 0));
 

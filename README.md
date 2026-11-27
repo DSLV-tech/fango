@@ -11,6 +11,9 @@ basta inquadrare il QR. I posti vuoti li guida il computer.
 
 ## Giocare
 
+Online: apri **<https://dslv-tech.github.io/fango/>** sul browser della TV (o di
+un computer collegato alla TV) e segui i passi 2 e 3. Per provarlo in locale:
+
 1. Apri `index.html` sulla TV (browser della smart TV, o un computer collegato
    alla TV). I telefoni devono raggiungere quella pagina, quindi niente
    `localhost`: servila sulla rete e aprila dall'indirizzo del computer.
@@ -27,8 +30,9 @@ basta inquadrare il QR. I posti vuoti li guida il computer.
 | | Telefono | Tastiera TV (G1 / G2) | Gamepad |
 |---|---|---|---|
 | Sterzo | ◀ ▶ (il pollice scorre tra i due) | ← → / A D | levetta o croce |
-| Gas | GAS | ↑ / W | A o RT |
-| Nitro | NITRO | ↓ / S | X, B o RB |
+| Avanti | ▲ AVANTI | ↑ / W | A o RT |
+| Retromarcia (prima frena) | ▼ RETRO | ↓ / S | B o LT |
+| Nitro | NITRO | Shift destro / Q | X o RB |
 | Partenza | START | Invio | Start |
 
 Serve Internet: il server pubblico di PeerJS presenta i telefoni alla TV, poi i

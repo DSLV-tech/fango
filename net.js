@@ -5,7 +5,7 @@
 // Protocollo (JSON sul canale dati, telefono → TV):
 //   { hello: pid, name }      all'apertura: pid è fisso per telefono, così chi
 //                             si ricollega a metà gara ritrova la sua auto
-//   { s, g, n, k }            sterzo da -1 a 1, gas, nitro, start (0/1)
+//   { s, g, r, n, k }         sterzo da -1 a 1, avanti, retromarcia, nitro, start (0/1)
 // TV → telefono:
 //   { you: { slot, name, color } }   il posto assegnato
 //   { hud: "testo", phase }          posizione e giro, ogni 250 ms
@@ -34,7 +34,7 @@
 
   function source(id, kind) {
     let s = sources.get(id);
-    if (!s) sources.set(id, (s = { id, kind, slot: null, s: 0, g: 0, n: 0, k: 0, kPrev: 0, live: true, last: performance.now(), conn: null, name: "" }));
+    if (!s) sources.set(id, (s = { id, kind, slot: null, s: 0, g: 0, r: 0, n: 0, k: 0, kPrev: 0, live: true, last: performance.now(), conn: null, name: "" }));
     return s;
   }
   function claim(src) {
@@ -80,12 +80,12 @@
           return;
         }
         if (!src || src.conn !== c || !Number.isFinite(d.s)) return;
-        src.s = Math.max(-1, Math.min(1, d.s)); src.g = d.g ? 1 : 0; src.n = d.n ? 1 : 0; src.k = d.k ? 1 : 0;
+        src.s = Math.max(-1, Math.min(1, d.s)); src.g = d.g ? 1 : 0; src.r = d.r ? 1 : 0; src.n = d.n ? 1 : 0; src.k = d.k ? 1 : 0;
         src.last = performance.now(); src.live = true;
       });
       c.on("close", () => {
         if (!src || src.conn !== c) return;
-        src.conn = null; src.live = false; src.s = src.g = src.n = src.k = 0;
+        src.conn = null; src.live = false; src.s = src.g = src.r = src.n = src.k = 0;
         if (phase === "lobby") release(src);   // in gara l'auto resta sua: la guida il computer finché non torna
         changed();
       });
@@ -109,8 +109,8 @@
   // ------------------------------------------------------------ tastiera
   const keys = new Set();
   const KB = {
-    kb1: { l: ["ArrowLeft"], r: ["ArrowRight"], g: ["ArrowUp"], n: ["ArrowDown", "ShiftRight", "Slash"] },
-    kb2: { l: ["KeyA"], r: ["KeyD"], g: ["KeyW"], n: ["KeyS", "ShiftLeft"] },
+    kb1: { l: ["ArrowLeft"], r: ["ArrowRight"], g: ["ArrowUp"], b: ["ArrowDown"], n: ["ShiftRight", "Slash", "Period"] },
+    kb2: { l: ["KeyA"], r: ["KeyD"], g: ["KeyW"], b: ["KeyS"], n: ["ShiftLeft", "KeyQ"] },
   };
   addEventListener("keydown", (e) => {
     if (e.repeat) return;
@@ -130,7 +130,7 @@
     for (const [id, m] of Object.entries(KB)) {
       const s = sources.get(id);
       if (!s) continue;
-      s.s = (any(m.r) ? 1 : 0) - (any(m.l) ? 1 : 0); s.g = any(m.g) ? 1 : 0; s.n = any(m.n) ? 1 : 0;
+      s.s = (any(m.r) ? 1 : 0) - (any(m.l) ? 1 : 0); s.g = any(m.g) ? 1 : 0; s.r = any(m.b) ? 1 : 0; s.n = any(m.n) ? 1 : 0;
     }
     for (const gp of navigator.getGamepads?.() || []) {
       if (!gp) continue;
@@ -142,11 +142,11 @@
       const s = source(id, "pad");
       s.live = true; s.last = now;
       if (pressed) claim(s);
-      s.s = b(15) ? 1 : b(14) ? -1 : ax; s.g = b(0) || b(7) ? 1 : 0; s.n = b(2) || b(1) || b(5) ? 1 : 0; s.k = b(9) ? 1 : 0;
+      s.s = b(15) ? 1 : b(14) ? -1 : ax; s.g = b(0) || b(7) ? 1 : 0; s.r = b(1) || b(6) ? 1 : 0; s.n = b(2) || b(5) ? 1 : 0; s.k = b(9) ? 1 : 0;
     }
     startEdge = false;
     for (const s of sources.values()) {
-      if (s.kind === "phone" && s.live && now - s.last > STALE_MS) { s.s = s.g = s.n = s.k = 0; }
+      if (s.kind === "phone" && s.live && now - s.last > STALE_MS) { s.s = s.g = s.r = s.n = s.k = 0; }
       if (s.slot !== null && s.k && !s.kPrev) startEdge = true;
       s.kPrev = s.k;
     }
