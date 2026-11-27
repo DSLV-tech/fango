@@ -29,7 +29,7 @@ un computer collegato alla TV) e segui i passi 2 e 3. Per provarlo in locale:
 
 | | Telefono | Tastiera TV (G1 / G2) | Gamepad |
 |---|---|---|---|
-| Sterzo | ◀ ▶ (il pollice scorre tra i due) | ← → / A D | levetta o croce |
+| Sterzo | ◀ ▶ (il pollice scorre tra i due), o **INCLINA** e si gira il telefono come un volante | ← → / A D | levetta o croce |
 | Avanti | ▲ AVANTI | ↑ / W | A o RT |
 | Retromarcia (prima frena) | ▼ RETRO | ↓ / S | B o LT |
 | Nitro | NITRO | Shift destro / Q | X o RB |
