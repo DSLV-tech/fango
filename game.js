@@ -254,7 +254,8 @@
   }
 
   // ------------------------------------------------------------ auto
-  const P = { accel: 310, drag: 1.65, nitroAccel: 380, nitroTime: 1.3, turn: 4.2, grip: 9, r: 6.5, reverse: 70 };
+  const P = { accel: 310, drag: 1.65, nitroAccel: 380, nitroTime: 1.3, turn: 4.2, grip: 9, r: 6.5, reverse: 70,
+    steerIn: 8, steerOut: 14 };          // sterzo progressivo: da 0 a pieno in 1/8 s, al centro in 1/14 s
   const SURFACE = [
     { acc: 1, drag: 1, grip: 1 },            // terra
     { acc: 0.5, drag: 2.4, grip: 0.55 },     // fango
@@ -280,7 +281,7 @@
         i, x, y, a: Math.atan2(T.ty[j], T.tx[j]), vx: 0, vy: 0, z: 0, vz: 0,
         idx: j, lap: -1, prog: 0, nitro: 3, boost: 0, nPrev: 0, done: false, time: 0, place: i + 1,
         ai: { off: (Math.random() * 2 - 1) * 0.4, skill: 0.86 + i * 0.03 + Math.random() * 0.04, look: 12 + (i % 2) * 3 },
-        bump: 0, color: sl.color,
+        bump: 0, color: sl.color, steer: 0,
       };
     });
     for (const c of cars) { c.prog = progress(c); }
@@ -319,8 +320,14 @@
     c.nPrev = inp.n;
     c.boost = Math.max(0, c.boost - dt);
 
+    // lo sterzo segue il comando a velocità limitata: tasti e tastiera danno solo
+    // -1/0/1 e senza rampa ogni tocco era uno scarto secco. Tornare verso il
+    // centro è più rapido che sterzare, così le correzioni restano pronte.
+    const want = inp.s, back = Math.abs(want) < Math.abs(c.steer) || want * c.steer < 0;
+    const rate = (back ? P.steerOut : P.steerIn) * dt;
+    c.steer += Math.max(-rate, Math.min(rate, want - c.steer));
     const turnScale = Math.min(1, 0.4 + Math.abs(fwd) / 80) * (air ? 0.35 : 1);
-    c.a += inp.s * P.turn * turnScale * dt * (fwd < -5 ? -1 : 1);
+    c.a += c.steer * P.turn * turnScale * dt * (fwd < -5 ? -1 : 1);
 
     if (!air) {
       let acc = inp.g ? P.accel * sf.acc : 0;
