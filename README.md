@@ -4,6 +4,8 @@ Corse fuoristrada viste dall'alto, una pista per schermata, fino a 4 giocatori
 sulla stessa TV. Ognuno guida col proprio telefono: nessuna app da installare,
 basta inquadrare il QR. I posti vuoti li guida il computer.
 
+- 4 piloti, ognuno con la sua auto: Rocco (rossa), Nina (blu), Bruno (gialla), Tina (verde);
+  chi entra dal telefono guida l'auto del posto che gli tocca, col proprio nome
 - 3 piste (Cava Rossa, Palude Vecchia, Dune Alte), 3 giri ciascuna
 - salti, fango, acqua e dossi che cambiano aderenza e velocità
 - nitro: 3 a testa, altre bombolette compaiono sulla pista
@@ -46,3 +48,8 @@ auto ricollegandosi; nel frattempo la guida il computer.
   descritto in cima al file
 - `pad.html`, `pad.js` — il volante sul telefono
 - `vendor/` — PeerJS 1.5.5 e il generatore di QR (MIT), presi da Codalume
+- `design/` — i bozzetti di Gemini (logo, auto, piloti, piste, TV, telefono): sono il
+  riferimento della grafica, il gioco li segue
+- `img/` — gli asset disegnati da Gemini e scontornati: `auto.webp` e `piloti.webp`
+  (4 celle, nell'ordine dei posti), `*-oggetti.webp` (8 celle da 160 px),
+  `*-terreno.webp` e `*-strada.webp` (texture ripetute), `logo`, `nitro`, `volante`

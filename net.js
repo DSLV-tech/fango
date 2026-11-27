@@ -7,8 +7,8 @@
 //                             si ricollega a metà gara ritrova la sua auto
 //   { s, g, r, n, k }         sterzo da -1 a 1, avanti, retromarcia, nitro, start (0/1)
 // TV → telefono:
-//   { you: { slot, name, color } }   il posto assegnato
-//   { hud: "testo", phase }          posizione e giro, ogni 250 ms
+//   { you: { slot, name, color } }   il posto assegnato (slot = auto e pilota)
+//   { hud: "testo", phase, nitro }   posizione, giro e bombolette, ogni 250 ms
 //   { v: ms }                        vibrazione
 //
 // Il server pubblico di PeerJS serve solo a presentare i dispositivi: poi i
@@ -20,7 +20,8 @@
   const STORE = "fango.code";
   const STALE_MS = 1500;                               // il telefono manda lo stato ogni 150 ms
   const COLORS = ["#e8443a", "#3a86ef", "#f2c230", "#3fbf5a"];
-  const NAMES = ["Rosso", "Blu", "Giallo", "Verde"];
+  // ogni posto è un'auto col suo pilota (i ritratti in img/piloti.webp, nello stesso ordine)
+  const NAMES = ["Rocco", "Nina", "Bruno", "Tina"];
 
   const slots = COLORS.map((color, i) => ({ i, color, name: NAMES[i], src: null }));
   const sources = new Map();         // id → { id, kind, slot, s, g, n, k, kPrev, live, last, conn }
@@ -162,6 +163,7 @@
 
   window.FangoNet = {
     slots,
+    pilots: NAMES,
     get code() { return code; },
     get status() { return status; },
     get local() { return local; },
@@ -176,7 +178,7 @@
       phase = p;
       if (p === "lobby") for (const s of sources.values()) if (!s.live) release(s);
     },
-    hud(i, text) { const s = bySlot(i); if (s?.conn?.open) s.conn.send({ hud: text, phase }); },
+    hud(i, text, nitro) { const s = bySlot(i); if (s?.conn?.open) s.conn.send({ hud: text, phase, nitro }); },
     rumble(i, ms) { const s = bySlot(i); if (s?.conn?.open) s.conn.send({ v: ms }); },
     onChange(f) { listeners.push(f); },
   };

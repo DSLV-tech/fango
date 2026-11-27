@@ -5,70 +5,96 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#1a120c">
   <title>Fango · volante</title>
+  <!-- grafica: bozzetto di Gemini in design/telefono.webp, asset in img/ -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,700;0,800;1,700;1,800;1,900&display=swap" rel="stylesheet">
   <style>
-    :root { --bg: #1a120c; --ink: #fbefd9; --dim: #c9b393; --btn: #2e2018; --line: #5a4030; --warm: #ffb03a; --c: #ffb03a; }
+    :root { --bg: #1a120c; --ink: #fbefd9; --dim: #c9b393; --btn: #2e2018; --rim: #6b4a30; --deep: #120b06; --warm: #ffb03a; --c: #ffb03a; --p: 0; }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden;
-      font: 16px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif; }
-    body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; touch-action: none; }
+      font: 700 16px/1.25 "Barlow Condensed", system-ui, -apple-system, "Segoe UI", sans-serif; }
+    body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; touch-action: none;
+      background: radial-gradient(ellipse at 20% 110%, rgba(90,58,30,.35), transparent 60%), radial-gradient(ellipse at 90% -10%, rgba(90,58,30,.3), transparent 55%), var(--bg); }
     button, input { font: inherit; color: inherit; }
     [hidden] { display: none !important; }
+    .face { display: block; aspect-ratio: 1; background: url(img/piloti.webp) calc(var(--p) * 100% / 3) 0 / 400% 100% no-repeat; }
+    /* tasto marrone col bordo in rilievo, come nel bozzetto */
+    .key { border: 3px solid var(--rim); border-radius: 16px; background: linear-gradient(#3a281c, var(--btn));
+      box-shadow: inset 0 0 0 3px #1e140d, inset 0 -6px 0 rgba(0,0,0,.3), 0 5px 0 var(--deep); }
+    .key.on { transform: translateY(3px); box-shadow: inset 0 0 0 3px #1e140d, 0 2px 0 var(--deep); background: color-mix(in srgb, var(--c) 30%, var(--btn)); }
 
-    #join { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; text-align: center; overflow: auto; touch-action: pan-y; }
+    /* ingresso */
+    #join { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 16px; text-align: center; overflow: auto; touch-action: pan-y; }
     #join > :first-child { margin-top: auto; } #join > :last-child { margin-bottom: auto; }
-    #join h1 { margin: 0; font-size: 30px; font-style: italic; font-weight: 900; color: var(--warm); }
+    #join h1 { margin: 0; line-height: 0; } #join h1 img { width: min(60vw, 240px); }
+    #join form { display: grid; gap: 14px; justify-items: stretch; width: min(78vw, 300px); }
+    #join fieldset { margin: 0; padding: 12px 14px 14px; display: grid; gap: 10px; border: 3px solid var(--rim); border-radius: 14px; background: #3a281c;
+      box-shadow: inset 0 0 0 3px #1e140d, 0 5px 0 var(--deep); }
+    #join label { display: grid; gap: 4px; font-size: 19px; }
+    #join input { padding: 8px 12px; text-align: center; background: #1e140d; border: 0; border-radius: 10px; box-shadow: inset 0 3px 0 rgba(0,0,0,.4); -webkit-user-select: text; user-select: text; font-size: 26px; }
+    #codein { font-weight: 900 !important; letter-spacing: .2em; text-transform: uppercase; color: var(--warm); }
+    #join button { padding: 8px 0 10px; border: 3px solid #8a4a10; border-radius: 14px; background: linear-gradient(#ffc457, #f59a1a); color: #2a1600;
+      font-weight: 900; font-style: italic; font-size: 38px; box-shadow: inset 0 2px 0 rgba(255,255,255,.45), 0 5px 0 #5a2c06; }
     #join p { margin: 0; color: var(--dim); max-width: 36ch; }
-    #join form { display: grid; gap: 10px; justify-items: center; }
-    #join label { display: grid; gap: 4px; font-size: 14px; color: var(--dim); }
-    #join input { padding: 10px 12px; text-align: center; background: var(--btn); border: 2px solid var(--line); border-radius: 10px; -webkit-user-select: text; user-select: text; }
-    #codein { width: 7.5ch; font: 700 26px/1 ui-monospace, monospace !important; letter-spacing: .2em; text-transform: uppercase; }
-    #namein { width: 14ch; font-size: 20px !important; }
-    #join button { padding: 12px 28px; border: 0; border-radius: 10px; background: var(--warm); color: #2a1600; font-weight: 800; font-size: 18px; }
     #joinmsg { color: #ff9a7a !important; min-height: 1.3em; }
 
-    #pad { position: fixed; inset: 0; background: radial-gradient(circle at 50% 0, color-mix(in srgb, var(--c) 28%, transparent), transparent 60%); }
-    .top { position: absolute; left: 50%; top: max(8px, env(safe-area-inset-top)); transform: translateX(-50%); display: grid; justify-items: center; gap: 4px; z-index: 3; width: 46%; text-align: center; pointer-events: none; }
-    .who { display: flex; gap: 8px; align-items: center; font-weight: 800; font-size: 18px; }
-    .who i { width: 26px; height: 16px; border-radius: 4px; background: var(--c); }
-    #hud { font-size: 14px; color: var(--dim); }
-    #state { font-size: 12px; color: var(--dim); display: flex; gap: 6px; align-items: baseline; }
+    /* volante */
+    #pad { position: fixed; inset: 0; }
+    .top { position: absolute; left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); top: max(8px, env(safe-area-inset-top)); z-index: 3;
+      display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 12px; background: var(--c); box-shadow: 0 4px 0 color-mix(in srgb, var(--c) 45%, #000); }
+    .who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 2px 12px 2px 4px; border-radius: 9px; background: rgba(40,8,4,.55); }
+    .who .face { width: 34px; border-radius: 7px; background-color: rgba(0,0,0,.25); }
+    #me { font-size: 22px; font-weight: 800; white-space: nowrap; }
+    #hud { margin-left: auto; font-size: 20px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .btns { display: flex; gap: 8px; align-items: center; }
+    .btns button { padding: 4px 14px; border-radius: 20px; border: 0; background: rgba(40,8,4,.55); font-weight: 900; font-size: 16px; letter-spacing: .04em; }
+    #tiltb { display: flex; align-items: center; gap: 8px; }
+    #tiltb::after { content: ""; width: 38px; height: 22px; border-radius: 11px; background: rgba(0,0,0,.4) radial-gradient(circle at 11px 50%, var(--ink) 8px, transparent 9px); transition: background-position .15s; }
+    #tiltb.on::after { background: #7ad38a radial-gradient(circle at 27px 50%, #fff 8px, transparent 9px); }
+    #state { position: absolute; left: 50%; top: calc(max(8px, env(safe-area-inset-top)) + 54px); transform: translateX(-50%); z-index: 3; pointer-events: none;
+      font-size: 14px; color: var(--dim); display: flex; gap: 6px; align-items: center; white-space: nowrap; }
     #state i { width: 8px; height: 8px; border-radius: 50%; background: var(--warm); }
     #state.on i { background: #7ad38a; }
-    .btns { display: flex; gap: 8px; margin-top: 4px; }
-    .btns button { pointer-events: auto; padding: 8px 16px; border-radius: 20px; border: 2px solid var(--line); background: var(--btn); font-weight: 800; font-size: 14px; letter-spacing: .05em; }
-    #startb { border-color: var(--c) !important; }
-    #tiltb.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 35%, var(--btn)); }
 
     /* sterzo: metà sinistra, il pollice scorre tra ◀ e ▶ */
-    #steer { position: absolute; left: 0; top: 0; bottom: 0; width: 52%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-      padding: 90px 10px max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
-    #steer div { border-radius: 22px; border: 3px solid var(--line); background: var(--btn); display: grid; place-content: center; font-size: 46px; color: var(--dim); }
+    #steer { position: absolute; left: 0; top: 0; bottom: 0; width: 46%; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: center;
+      padding: 84px 7px max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left)); }
+    #steer div { height: min(100%, 64vh); display: grid; place-content: center; font-size: 64px; line-height: 1; color: var(--ink); }
     #steer.tilt div { opacity: .35; }
-    #wheel { position: absolute; left: 50%; top: calc(50% + 37px); width: min(60%, 46vh); aspect-ratio: 1; margin: 0; translate: -50% -50%; border-radius: 50%;
-      border: 10px solid var(--c); pointer-events: none; display: none; }
-    #wheel::before { content: ""; position: absolute; left: 50%; top: 50%; width: 100%; height: 10px; translate: -50% -50%; background: var(--c); }
-    #wheel::after { content: ""; position: absolute; left: 50%; top: 50%; width: 10px; height: 50%; translate: -50% 0; background: var(--c); }
+    /* volante disegnato da Gemini (img/volante.webp), ruota col telefono */
+    #wheel { position: absolute; left: 50%; top: calc(50% + 33px); width: min(72%, 52vh); aspect-ratio: 1; translate: -50% -50%;
+      pointer-events: none; display: none; filter: drop-shadow(0 6px 8px rgba(0,0,0,.6)); }
     #steer.tilt #wheel { display: block; }
-    #steer div.on { border-color: var(--c); color: var(--ink); background: color-mix(in srgb, var(--c) 30%, var(--btn)); }
-    .right { position: absolute; right: 0; top: 0; bottom: 0; width: 46%; display: grid; grid-template-rows: 1fr 1.8fr; grid-template-columns: 1fr 1.7fr; gap: 10px;
-      padding: 90px max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) 10px; }
-    .right button { border-radius: 22px; border: 3px solid var(--line); background: var(--btn); font-weight: 900; font-style: italic; font-size: 26px; letter-spacing: .04em; }
-    #gas { border-color: var(--c) !important; font-size: 34px !important; }
-    #nitro { color: #7fe0ff; grid-column: span 2; }
-    #rev { font-size: 20px !important; color: var(--dim); }
-    .right button small { display: block; font-size: 30px; line-height: 1; font-style: normal; }
-    .right button.on { background: color-mix(in srgb, var(--c) 35%, var(--btn)); transform: scale(.97); }
-    #turn { position: fixed; inset: 0; display: none; place-content: center; text-align: center; background: var(--bg); z-index: 5; color: var(--dim); padding: 16px; font-size: 20px; }
+
+    .right { position: absolute; right: 0; top: 0; bottom: 0; width: 54%; display: grid; grid-template-columns: 1.35fr 1fr; grid-template-rows: 1.7fr 1fr; gap: 12px 14px;
+      padding: 84px max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) 7px; }
+    .right button { font-weight: 900; letter-spacing: .03em; }
+    #gas { font-size: 34px; display: grid; place-content: center; line-height: 1; }
+    #gas small { font-size: 46px; }
+    #rev { font-size: 24px; color: var(--ink); }
+    #rev small { font-size: 22px; }
+    #nitro { grid-column: 2; grid-row: 1 / span 2; align-self: center; justify-self: center; width: min(100%, 52vh); aspect-ratio: 1; border-radius: 50%;
+      border: 5px solid #0d4a70; background: radial-gradient(circle at 40% 35%, #8ee6ff, #36c6f0 40%, #1478c0); color: #fff;
+      font-size: 26px; font-style: italic; -webkit-text-stroke: 1px #0d4a70; box-shadow: 0 0 0 5px #3a281c, 0 0 22px 6px rgba(54,198,240,.55), 0 6px 0 5px var(--deep);
+      display: grid; place-content: center; gap: 4px; }
+    #nitro.on { transform: scale(.95); }
+    #nitro.empty { filter: saturate(.25) brightness(.7); box-shadow: 0 0 0 5px #3a281c, 0 6px 0 5px var(--deep); }
+    #nbar { display: flex; gap: 3px; justify-content: center; -webkit-text-stroke: 0; }
+    #nbar i { width: 9px; height: 9px; border-radius: 50%; background: rgba(13,74,112,.6); }
+    #nbar i.on { background: #fff; box-shadow: 0 0 6px #fff; }
+    #turn { position: fixed; inset: 0; display: none; place-content: center; text-align: center; background: var(--bg); z-index: 5; color: var(--dim); padding: 16px; font-size: 22px; }
     @media (orientation: portrait) { #pad:not([hidden]) ~ #turn { display: grid; } }
   </style>
 </head>
 <body>
   <section id="join">
-    <h1>FANGO</h1>
-    <p>Scrivi il codice che vedi sulla TV e il tuo nome.</p>
+    <h1><img src="img/logo.webp" alt="FANGO"></h1>
     <form>
-      <label>Codice <input id="codein" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD"></label>
-      <label>Nome <input id="namein" maxlength="12" autocomplete="nickname" placeholder="Pilota"></label>
+      <fieldset>
+        <label>Codice della TV <input id="codein" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD"></label>
+        <label>Il tuo nome <input id="namein" maxlength="12" autocomplete="nickname" placeholder="Pilota"></label>
+      </fieldset>
       <button>Entra</button>
     </form>
     <p id="joinmsg"></p>
@@ -76,21 +102,20 @@
 
   <section id="pad" hidden>
     <div class="top">
-      <div class="who"><i></i><span id="me">…</span></div>
-      <div id="hud"></div>
-      <div id="state"><i></i><span></span></div>
+      <div class="who"><i class="face"></i><span id="me">…</span><span id="hud"></span></div>
       <div class="btns"><button id="startb">START</button><button id="tiltb">INCLINA</button></div>
     </div>
-    <div id="steer"><div data-dir="-1">◀</div><div data-dir="1">▶</div><i id="wheel"></i></div>
+    <div id="state"><i></i><span></span></div>
+    <div id="steer"><div class="key" data-dir="-1">◀</div><div class="key" data-dir="1">▶</div><img id="wheel" src="img/volante.webp" alt=""></div>
     <div class="right">
-      <button id="nitro">NITRO</button>
-      <button id="rev"><small>▼</small>RETRO</button>
-      <button id="gas"><small>▲</small>AVANTI</button>
+      <button id="gas" class="key"><small>▲</small>AVANTI</button>
+      <button id="nitro"><span>NITRO</span><span id="nbar"></span></button>
+      <button id="rev" class="key"><small>▼</small> RETRO</button>
     </div>
   </section>
   <div id="turn">Gira il telefono in orizzontale ⟲</div>
 
   <script src="vendor/peerjs.min.js"></script>
-  <script src="pad.js?v=5"></script>
+  <script src="pad.js?v=6"></script>
 </body>
 </html>

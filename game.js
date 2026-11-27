@@ -15,17 +15,17 @@
   // Le zone sono frazioni della lunghezza del giro (0 = traguardo).
   const TRACKS = [
     {
-      name: "Cava Rossa", w: 50, ground: ["#6b3f26", "#7a4a2c", "#5c3520"], dirt: "#c58a52",
+      name: "Cava Rossa", art: "cava", w: 50, ground: ["#6b3f26", "#7a4a2c", "#5c3520"], dirt: "#c58a52",
       pts: [[90, 285], [80, 110], [160, 52], [262, 80], [300, 175], [362, 95], [470, 52], [572, 88], [585, 185], [505, 225], [565, 292], [455, 322], [320, 300], [200, 322]],
       zones: [{ t: "jump", f: 0.13 }, { t: "mud", a: 0.30, b: 0.36 }, { t: "bumps", a: 0.52, b: 0.58 }, { t: "jump", f: 0.70 }, { t: "water", a: 0.86, b: 0.91 }],
     },
     {
-      name: "Palude Vecchia", w: 52, ground: ["#2f4a2a", "#3a5a30", "#263d22"], dirt: "#9a7a4a",
+      name: "Palude Vecchia", art: "palude", w: 52, ground: ["#2f4a2a", "#3a5a30", "#263d22"], dirt: "#9a7a4a",
       pts: [[95, 190], [112, 72], [250, 50], [330, 122], [402, 60], [540, 60], [585, 152], [540, 236], [430, 215], [380, 290], [250, 325], [150, 312]],
       zones: [{ t: "mud", a: 0.06, b: 0.12 }, { t: "water", a: 0.24, b: 0.29 }, { t: "jump", f: 0.40 }, { t: "mud", a: 0.58, b: 0.66 }, { t: "water", a: 0.78, b: 0.82 }, { t: "bumps", a: 0.88, b: 0.94 }],
     },
     {
-      name: "Dune Alte", w: 48, ground: ["#c9a46a", "#d4b078", "#b8915a"], dirt: "#e6c690",
+      name: "Dune Alte", art: "dune", w: 48, ground: ["#c9a46a", "#d4b078", "#b8915a"], dirt: "#e6c690",
       pts: [[72, 205], [92, 82], [200, 58], [232, 160], [322, 196], [360, 92], [470, 58], [580, 100], [572, 222], [500, 265], [380, 322], [252, 282], [132, 322]],
       zones: [{ t: "jump", f: 0.08 }, { t: "bumps", a: 0.20, b: 0.27 }, { t: "jump", f: 0.42 }, { t: "mud", a: 0.55, b: 0.60 }, { t: "jump", f: 0.74 }, { t: "bumps", a: 0.84, b: 0.92 }],
     },
@@ -83,41 +83,59 @@
   // ------------------------------------------------------------ disegno della pista (una volta)
   function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
 
+  // La grafica viene da Gemini (design/ sono i bozzetti, img/ gli asset scontornati):
+  // texture di terreno e strada ripetute, oggetti di contorno a fogli 4×2 da 160 px.
+  const ART = {};
+  const ART_FILES = ["auto", "nitro", "cava-terreno", "cava-strada", "cava-oggetti", "palude-terreno", "palude-strada", "palude-oggetti", "dune-terreno", "dune-strada", "dune-oggetti"];
+  const loadArt = () => Promise.all(ART_FILES.map((n) => new Promise((ok) => {
+    const im = new Image();
+    im.onload = () => { ART[n] = im; ok(); };
+    im.onerror = () => ok();            // senza un'immagine si disegna a tinta unita
+    im.src = `img/${n}.webp`;
+  })));
+  const CELL = 160;
+
   function paintTrack(T) {
     const c = document.createElement("canvas"); c.width = W * S; c.height = H * S;
     const g = c.getContext("2d"); g.scale(S, S);
     const R = rng(T.N * 7 + 3), def = T.def;
-    g.fillStyle = def.ground[0]; g.fillRect(0, 0, W, H);
-    for (let k = 0; k < 2600; k++) { g.fillStyle = def.ground[1 + (k & 1)]; g.fillRect(R() * W, R() * H, 1 + R() * 3, 1 + R() * 2); }
+    // un pixel della texture = un pixel della tela
+    const tex = (name, color) => {
+      const im = ART[`${def.art}-${name}`];
+      if (!im) return color;
+      const p = g.createPattern(im, "repeat"); p.setTransform(new DOMMatrix().scale(1 / S)); return p;
+    };
+    g.fillStyle = tex("terreno", def.ground[0]); g.fillRect(0, 0, W, H);
 
     const path = () => { g.beginPath(); g.moveTo(T.x[0], T.y[0]); for (let i = 1; i < T.N; i++) g.lineTo(T.x[i], T.y[i]); g.closePath(); };
+    const across = (i, f) => { const o = T.hw * f; return [T.x[i] - T.ty[i] * o, T.y[i] + T.tx[i] * o]; };
+    const line = (f) => { g.beginPath(); for (let i = 0; i <= T.N; i++) g.lineTo(...across(i % T.N, f)); };
     g.lineJoin = "round"; g.lineCap = "round";
-    path(); g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = def.w + 16; g.stroke();     // ombra del terrapieno
+    path(); g.strokeStyle = "rgba(0,0,0,.4)"; g.lineWidth = def.w + 18; g.stroke();      // ombra del terrapieno
     path(); g.strokeStyle = "#3b2618"; g.lineWidth = def.w + 10; g.stroke();
     path(); g.strokeStyle = "#8a6440"; g.lineWidth = def.w + 4; g.stroke();
-    path(); g.strokeStyle = def.dirt; g.lineWidth = def.w; g.stroke();
+    path(); g.strokeStyle = tex("strada", def.dirt); g.lineWidth = def.w; g.stroke();
+    // solchi lasciati dalle gomme
+    g.lineWidth = 1.2;
+    for (const f of [-0.55, -0.3, 0.3, 0.55]) { line(f); g.strokeStyle = "rgba(40,20,5,.12)"; g.stroke(); }
 
-    // grana della terra
-    for (let k = 0; k < 5000; k++) {
-      const i = (R() * T.N) | 0, o = (R() * 2 - 1) * (T.hw - 2);
-      const px = T.x[i] - T.ty[i] * o, py = T.y[i] + T.tx[i] * o;
-      g.fillStyle = R() < 0.5 ? "rgba(0,0,0,.08)" : "rgba(255,255,255,.08)";
-      g.fillRect(px, py, 1 + R() * 2, 1);
-    }
-    // zone
-    const across = (i, f) => { const o = T.hw * f; return [T.x[i] - T.ty[i] * o, T.y[i] + T.tx[i] * o]; };
     // fango e acqua su un foglio a parte, ritagliato sulla forma della pista
     const pc = document.createElement("canvas"); pc.width = W * S; pc.height = H * S;
     const pg = pc.getContext("2d"); pg.scale(S, S);
+    const blobs = [];
     for (let i = 0; i < T.N; i++) {
       const s = T.surf[i];
-      if (s === 1 || s === 2) {
-        for (let k = 0; k < 3; k++) {
-          const [px, py] = across(i, (R() * 2 - 1) * 0.7);
-          pg.fillStyle = s === 1 ? (R() < 0.6 ? "#5a3a1e" : "#4a2e17") : (R() < 0.7 ? "#3d78a8" : "#5a9ac8");
-          pg.beginPath(); pg.arc(px, py, T.hw * (0.35 + R() * 0.3), 0, 7); pg.fill();
-        }
-      }
+      if (s === 1 || s === 2) for (let k = 0; k < 3; k++) blobs.push({ s, p: across(i, (R() * 2 - 1) * 0.7), r: T.hw * (0.35 + R() * 0.3) });
+    }
+    // prima il bordo scuro, poi la pozza: si legge come un avvallamento
+    for (const b of blobs) { pg.fillStyle = b.s === 1 ? "#2e1b0c" : "#24506f"; pg.beginPath(); pg.arc(...b.p, b.r + 1.6, 0, 7); pg.fill(); }
+    for (const b of blobs) {
+      pg.fillStyle = b.s === 1 ? (R() < 0.6 ? "#5a3a1e" : "#4a2e17") : (R() < 0.7 ? "#3d78a8" : "#5a9ac8");
+      pg.beginPath(); pg.arc(...b.p, b.r, 0, 7); pg.fill();
+    }
+    for (const b of blobs) if (R() < 0.35) {      // riflessi
+      pg.fillStyle = b.s === 1 ? "rgba(255,225,190,.16)" : "rgba(255,255,255,.35)";
+      pg.beginPath(); pg.ellipse(b.p[0] - b.r * 0.3, b.p[1] - b.r * 0.35, b.r * 0.35, b.r * 0.15, -0.4, 0, 7); pg.fill();
     }
     pg.globalCompositeOperation = "destination-in";
     pg.beginPath(); pg.moveTo(T.x[0], T.y[0]); for (let i = 1; i < T.N; i++) pg.lineTo(T.x[i], T.y[i]); pg.closePath();
@@ -131,25 +149,32 @@
         g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke();
       }
       if (T.jump[i] && !T.jump[(i - 1 + T.N) % T.N]) {
-        // rampa: chiara in salita, ombra dopo il ciglio
+        // rampa: chiara in salita, ombra dopo il ciglio, frecce gialle come nei bozzetti
         for (let k = -4; k < 4; k++) {
           const j = (i + k + T.N) % T.N, a = across(j, -1), b = across(j, 1);
           g.strokeStyle = k < 2 ? `rgba(255,240,200,${0.12 + (k + 4) * 0.06})` : "rgba(0,0,0,.4)"; g.lineWidth = STEP + 0.5;
           g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke();
         }
         for (const f of [-0.5, 0, 0.5]) {
-          const [px, py] = across((i - 2 + T.N) % T.N, f), ang = Math.atan2(T.ty[i], T.tx[i]);
-          g.save(); g.translate(px, py); g.rotate(ang); g.fillStyle = "rgba(255,255,255,.55)";
-          g.beginPath(); g.moveTo(4, 0); g.lineTo(-2, -3); g.lineTo(-2, 3); g.fill(); g.restore();
+          const [px, py] = across((i - 3 + T.N) % T.N, f), ang = Math.atan2(T.ty[i], T.tx[i]);
+          g.save(); g.translate(px, py); g.rotate(ang);
+          g.beginPath(); g.moveTo(-3, -4); g.lineTo(2, 0); g.lineTo(-3, 4); g.lineTo(-5, 4); g.lineTo(0, 0); g.lineTo(-5, -4); g.closePath();
+          g.fillStyle = "#ffd04a"; g.strokeStyle = "#5a2a10"; g.lineWidth = 0.8; g.fill(); g.stroke(); g.restore();
         }
       }
     }
-    // barriere di gomme sui bordi
-    for (let i = 0; i < T.N; i += 3) for (const side of [-1, 1]) {
-      const o = (T.hw + 5) * side;
-      g.fillStyle = (i / 3 + (side > 0 ? 1 : 0)) % 4 < 2 ? "#e8e0d0" : "#c8322a";
-      g.beginPath(); g.arc(T.x[i] - T.ty[i] * o, T.y[i] + T.tx[i] * o, 2.2, 0, 7); g.fill();
+    // cordoli bianchi e rossi dove la pista curva
+    g.lineCap = "butt"; g.lineWidth = 3;
+    for (let i = 0; i < T.N; i++) {
+      const a = (i - 6 + T.N) % T.N, b = (i + 6) % T.N;
+      if (Math.abs(T.tx[a] * T.ty[b] - T.ty[a] * T.tx[b]) < 0.2) continue;
+      for (const side of [-1, 1]) {
+        const f = side * (1 + 1.5 / T.hw);
+        g.strokeStyle = ((i >> 1) + (side > 0 ? 1 : 0)) & 1 ? "#e8e0d0" : "#c8322a";
+        g.beginPath(); g.moveTo(...across(i, f)); g.lineTo(...across((i + 1) % T.N, f)); g.stroke();
+      }
     }
+    g.lineCap = "round";
     // traguardo a scacchi
     for (let k = -6; k < 6; k++) for (let r = 0; r < 2; r++) {
       const o = (k + 0.5) * (def.w / 12), a = r * 4 - 4;
@@ -157,23 +182,32 @@
       g.fillStyle = (k + r) & 1 ? "#111" : "#f4f4f4";
       g.save(); g.translate(px, py); g.rotate(Math.atan2(T.ty[0], T.tx[0])); g.fillRect(0, -def.w / 24, 4, def.w / 12 + 0.3); g.restore();
     }
-    // sassi e cespugli lontano dalla pista
-    for (let k = 0; k < 90; k++) {
-      const px = R() * W, py = R() * H;
-      let d = Infinity;
-      for (let i = 0; i < T.N; i += 2) d = Math.min(d, Math.hypot(px - T.x[i], py - T.y[i]));
-      if (d < T.hw + 14) continue;
-      const r = 2 + R() * 5;
-      g.fillStyle = "rgba(0,0,0,.3)"; g.beginPath(); g.ellipse(px + 2, py + 2, r, r * 0.8, 0, 0, 7); g.fill();
-      g.fillStyle = R() < 0.5 ? "#7d6a58" : (def.ground[0] === "#2f4a2a" ? "#4f7a3a" : "#6a7a3a");
-      g.beginPath(); g.ellipse(px, py, r, r * 0.8, 0, 0, 7); g.fill();
-      g.fillStyle = "rgba(255,255,255,.18)"; g.beginPath(); g.ellipse(px - r * 0.3, py - r * 0.3, r * 0.4, r * 0.3, 0, 0, 7); g.fill();
+    // oggetti di contorno, lontano dalla pista e senza sovrapporsi
+    const props = ART[`${def.art}-oggetti`], placed = [];
+    if (props) {
+      g.shadowColor = "rgba(0,0,0,.5)"; g.shadowOffsetX = 3; g.shadowOffsetY = 4; g.shadowBlur = 4;
+      for (let k = 0; k < 400 && placed.length < 42; k++) {
+        const size = 15 + R() * 13, px = 8 + R() * (W - 16), py = 8 + R() * (H - 16);
+        let d = Infinity;
+        for (let i = 0; i < T.N; i += 2) d = Math.min(d, Math.hypot(px - T.x[i], py - T.y[i]));
+        if (d < T.hw + 9 + size / 2) continue;
+        if (placed.some((q) => Math.hypot(q[0] - px, q[1] - py) < (q[2] + size) * 0.5)) continue;
+        placed.push([px, py, size]);
+        const n = (R() * 8) | 0;
+        g.save(); g.translate(px, py); if (R() < 0.5) g.scale(-1, 1);
+        g.drawImage(props, (n % 4) * CELL, (n >> 2) * CELL, CELL, CELL, -size / 2, -size / 2, size, size);
+        g.restore();
+      }
+      g.shadowColor = "transparent";
     }
+    // bordi scuri come nei bozzetti delle piste
+    const v = g.createRadialGradient(W / 2, H / 2, H * 0.45, W / 2, H / 2, W * 0.62);
+    v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(20,10,4,.55)");
+    g.fillStyle = v; g.fillRect(0, 0, W, H);
     return c;
   }
 
   // ------------------------------------------------------------ auto
-  const CPU_NAMES = ["Ruggine", "Bulldozer", "Polvere", "Trivella"];
   const P = { accel: 310, drag: 1.65, nitroAccel: 380, nitroTime: 1.3, turn: 4.2, grip: 9, r: 6.5, reverse: 70 };
   const SURFACE = [
     { acc: 1, drag: 1, grip: 1 },            // terra
@@ -371,31 +405,27 @@
   }
 
   // ------------------------------------------------------------ disegno
+  // auto.webp: 4 celle da 160 px, l'auto vista dall'alto col muso in basso; lunga ~20 px di gioco
+  const CAR_SIZE = 21.5;
   function drawCar(c) {
     const lift = c.z;
     // ombra
     ctx.save(); ctx.translate(c.x + 2 + lift * 0.35, c.y + 3 + lift * 0.5); ctx.rotate(c.a);
     ctx.fillStyle = `rgba(0,0,0,${0.4 - Math.min(0.25, lift / 120)})`;
-    ctx.fillRect(-8, -5, 16, 10); ctx.restore();
+    ctx.beginPath(); ctx.roundRect(-9.5, -6, 19, 12, 3); ctx.fill(); ctx.restore();
 
     ctx.save(); ctx.translate(c.x, c.y - lift * 0.6); ctx.rotate(c.a);
     const k = 1 + lift / 90; ctx.scale(k, k);
-    // ruote
-    ctx.fillStyle = "#151210";
-    for (const [wx, wy] of [[-5, -5.5], [4.5, -5.5], [-5, 3.5], [4.5, 3.5]]) ctx.fillRect(wx - 1.5, wy, 4, 2);
-    // cassone e cabina
-    ctx.fillStyle = "#1c1410"; ctx.fillRect(-8, -4.5, 16, 9);
-    ctx.fillStyle = c.color; ctx.fillRect(-7.5, -4, 15, 8);
-    ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.fillRect(-7.5, 1.5, 15, 2.5);
-    ctx.fillStyle = "rgba(255,255,255,.3)"; ctx.fillRect(-7.5, -4, 15, 1.2);
-    ctx.fillStyle = "#2a3a48"; ctx.fillRect(0.5, -3, 3.2, 6);                     // parabrezza
-    ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fillRect(-6.5, -2.5, 5, 5);             // cassone
-    ctx.fillStyle = "#ffe9a8"; ctx.fillRect(7, -3.5, 1, 1.5); ctx.fillRect(7, 2, 1, 1.5);   // fari
-    if (c.boost > 0) { ctx.fillStyle = Math.random() < 0.5 ? "#ffd04a" : "#ff6a2a"; ctx.fillRect(-11, -1.5, 3, 3); }
+    if (c.boost > 0) {             // fiammata del nitro, sotto l'auto
+      const L = 9 + Math.random() * 6;
+      ctx.fillStyle = "#ff6a2a"; ctx.beginPath(); ctx.moveTo(-8, -3.5); ctx.lineTo(-8 - L, 0); ctx.lineTo(-8, 3.5); ctx.fill();
+      ctx.fillStyle = "#ffd04a"; ctx.beginPath(); ctx.moveTo(-8, -2); ctx.lineTo(-8 - L * 0.6, 0); ctx.lineTo(-8, 2); ctx.fill();
+    }
+    if (ART.auto) {
+      ctx.rotate(-Math.PI / 2);
+      ctx.drawImage(ART.auto, c.i * CELL, 0, CELL, CELL, -CAR_SIZE / 2, -CAR_SIZE / 2, CAR_SIZE, CAR_SIZE);
+    } else { ctx.fillStyle = c.color; ctx.fillRect(-9, -5.5, 18, 11); }
     ctx.restore();
-    // numero sopra
-    ctx.fillStyle = "#fff"; ctx.font = "bold 6px system-ui, sans-serif"; ctx.textAlign = "center";
-    ctx.fillText(String(c.i + 1), c.x, c.y - 9 - lift * 0.6);
   }
 
   function draw() {
@@ -404,11 +434,11 @@
     ctx.drawImage(bg, 0, 0); ctx.drawImage(skid, 0, 0);
     ctx.setTransform(S, 0, 0, S, 0, 0);
     for (const p of pickups) {
-      const bob = Math.sin(p.t * 6) * 1;
-      ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fillRect(p.x - 3 + 1, p.y - 4 + 2, 6, 8);
-      ctx.fillStyle = "#1a6aa8"; ctx.fillRect(p.x - 3, p.y - 4 + bob, 6, 8);
-      ctx.fillStyle = (p.t * 4) % 1 < 0.5 ? "#7fe0ff" : "#fff"; ctx.fillRect(p.x - 2, p.y - 2 + bob, 4, 2);
-      ctx.fillStyle = "#ddd"; ctx.fillRect(p.x - 1, p.y - 5 + bob, 2, 1.5);
+      const bob = Math.sin(p.t * 6) * 1.2, glow = 0.35 + 0.2 * Math.sin(p.t * 8);
+      ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(p.x + 2, p.y + 4, 4, 2, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = `rgba(127,224,255,${glow})`; ctx.beginPath(); ctx.arc(p.x, p.y + bob, 7, 0, 7); ctx.fill();
+      if (ART.nitro) ctx.drawImage(ART.nitro, p.x - 7, p.y - 7 + bob, 14, 14);
+      else { ctx.fillStyle = "#1a6aa8"; ctx.fillRect(p.x - 3, p.y - 4 + bob, 6, 8); }
     }
     for (const p of parts) { ctx.globalAlpha = Math.min(1, p.life / p.max * 1.5); ctx.fillStyle = p.col; ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size); }
     ctx.globalAlpha = 1;
@@ -500,23 +530,27 @@
     for (const sl of Net.slots) {
       const el = document.createElement("div");
       el.className = "slot" + (sl.src ? " on" : "");
-      el.style.setProperty("--c", sl.color);
-      const kind = Net.kind(sl.i);
-      el.innerHTML = `<i></i><b></b><small></small>`;
-      el.querySelector("b").textContent = sl.src ? sl.name : CPU_NAMES[sl.i];
-      el.querySelector("small").textContent = sl.src ? { phone: "telefono", kb: "tastiera", pad: "gamepad" }[kind] + (Net.input(sl.i) ? "" : " · scollegato") : "computer";
+      el.style.setProperty("--c", sl.color); el.style.setProperty("--p", sl.i);
+      const kind = Net.kind(sl.i), pilot = Net.pilots[sl.i];
+      el.innerHTML = `<i class="face"></i><b></b><small></small>`;
+      el.querySelector("b").textContent = sl.name;
+      el.querySelector("small").textContent = !sl.src ? "guida il computer"
+        : (sl.name === pilot ? "" : pilot + " · ") + { phone: "col telefono", kb: "da tastiera", pad: "col gamepad" }[kind] + (Net.input(sl.i) ? "" : " · scollegato");
       $("#slots").appendChild(el);
     }
   }
   Net.onChange(() => { if (phase === "lobby") renderLobby(); });
 
-  function nameOf(i) { return Net.human(i) ? Net.slots[i].name : CPU_NAMES[i]; }
+  // senza giocatore il posto ha il nome del suo pilota (net.js)
+  const nameOf = (i) => Net.slots[i].name;
 
   let hudKey = "";
   function renderHud() {
     const rows = cars.map((c) => {
       const lap = Math.max(1, Math.min(LAPS, c.lap + 1));
-      return `<div class="p" style="--c:${c.color}"><b>${ord(c.place)}</b><span>${escape(nameOf(c.i))}</span><small>${c.done ? fmt(c.time) : `giro ${lap}/${LAPS}`} · ${"▮".repeat(c.nitro) || "–"}</small></div>`;
+      const bar = Array.from({ length: Math.max(5, c.nitro) }, (_, k) => `<i${k < c.nitro ? ' class="on"' : ""}></i>`).join("");
+      return `<div class="p" style="--c:${c.color}"><b>${ord(c.place)}</b><span>${escape(nameOf(c.i))}</span>`
+        + `<small>${c.done ? fmt(c.time) : `giro ${lap}/${LAPS}`}</small><em>nitro <u>${bar}</u></em></div>`;
     }).join("");
     if (rows !== hudKey) { ui.hud.innerHTML = rows; hudKey = rows; }
   }
@@ -526,9 +560,9 @@
     const order = [...cars].sort((a, b) => a.place - b.place);
     const best = order[0];
     $("#rtitle").textContent = `Vince ${nameOf(best.i)}!`;
-    $("#rtitle").style.color = best.color;
+    $("#rwin").style.setProperty("--p", best.i); $("#rwin").style.setProperty("--c", best.color);
     $("#rlist").innerHTML = order.map((c) =>
-      `<li style="--c:${c.color}"><b>${ord(c.place)}</b><span>${escape(nameOf(c.i))}</span><small>${c.done ? fmt(c.time) : "non arrivato"}</small></li>`).join("");
+      `<li style="--c:${c.color};--p:${c.i}"><b>${ord(c.place)}</b><i class="face"></i><span>${escape(nameOf(c.i))}</span><small>${c.done ? fmt(c.time) : "non arrivato"}</small></li>`).join("");
   }
 
   function show(name) {
@@ -567,8 +601,8 @@
       const text = phase === "lobby" ? `${TRACKS[trackNo].name} · premi START per partire`
         : phase === "results" ? `Arrivato ${ord(c.place)} · START per la prossima pista`
         : c.done ? `Arrivato ${ord(c.place)} · ${fmt(c.time)}`
-        : `${ord(c.place)} · giro ${Math.max(1, c.lap + 1)}/${LAPS} · nitro ${c.nitro}`;
-      Net.hud(c.i, text);
+        : `${ord(c.place)} · giro ${Math.max(1, c.lap + 1)}/${LAPS}`;
+      Net.hud(c.i, text, c.nitro);
     }
   }
 
@@ -620,6 +654,5 @@
   // per i test dal browser
   window.Fango = { TRACKS, buildTrack, get cars() { return cars; }, get phase() { return phase; }, get track() { return T; }, start: () => toCount() };
 
-  toLobby();
-  requestAnimationFrame(frame);
+  loadArt().then(() => { toLobby(); requestAnimationFrame(frame); });
 })();

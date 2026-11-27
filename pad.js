@@ -60,6 +60,7 @@
       if (!d || typeof d !== "object") return;
       if (d.you && typeof d.you.color === "string" && /^#[0-9a-f]{6}$/i.test(d.you.color)) {
         document.documentElement.style.setProperty("--c", d.you.color);
+        if (Number.isInteger(d.you.slot) && d.you.slot >= 0 && d.you.slot < 4) document.documentElement.style.setProperty("--p", d.you.slot);   // il ritratto del pilota
         $("#me").textContent = String(d.you.name || "").slice(0, 12);
       }
       if (d.full) say("La gara è piena (4 piloti).");
@@ -67,11 +68,23 @@
         $("#hud").textContent = d.hud.slice(0, 80);
         $("#startb").hidden = d.phase === "race";
       }
+      if (Number.isInteger(d.nitro)) showNitro(Math.max(0, Math.min(9, d.nitro)));
       if (Number.isFinite(d.v) && canVibrate) navigator.vibrate(Math.min(300, d.v));
     });
     c.on("close", () => { if (conn === c || !conn) { conn = null; say("TV scollegata: riprovo…"); again(); } });
     c.on("error", () => {});
   }
+
+  // le bombolette rimaste, come tacche sul tasto NITRO
+  let nitroShown = -1;
+  function showNitro(n) {
+    if (n === nitroShown) return;
+    nitroShown = n;
+    const bar = $("#nbar"); bar.textContent = "";
+    for (let k = 0; k < Math.max(3, n); k++) { const i = document.createElement("i"); if (k < n) i.className = "on"; bar.appendChild(i); }
+    $("#nitro").classList.toggle("empty", n === 0);
+  }
+  showNitro(3);
 
   function send(force) {
     if (!conn || !conn.open) return;
@@ -167,7 +180,6 @@
     if (on && conn) say("Collegato · tieni il telefono dritto: quello è il centro", true);
     tilt = on; zero = null; angle = 0;
     tiltb.classList.toggle("on", on); zone.classList.toggle("tilt", on);
-    tiltb.textContent = on ? "TASTI" : "INCLINA";
     store.set("fango.tilt", on ? "1" : "");
     if (on) addEventListener("devicemotion", onMotion);
     else { removeEventListener("devicemotion", onMotion); if (steerId === null) { st.s = 0; L.classList.remove("on"); R.classList.remove("on"); send(); } }
