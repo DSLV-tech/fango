@@ -69,13 +69,16 @@
       background: rgba(18,10,5,.88); font-style: italic; }
     #rwin { width: 24cqw; border-radius: 2cqw; border: .5cqw solid var(--c); background-color: color-mix(in srgb, var(--c) 25%, rgba(0,0,0,.5)); }
     #rtitle { margin: 0 0 1.6cqw; font-size: 6cqw; font-weight: 900; line-height: 1; color: var(--warm); -webkit-text-stroke: .3cqw #5a2410; paint-order: stroke fill; }
-    #rlist { list-style: none; margin: 0; padding: 0; width: 46cqw; display: grid; gap: .8cqw; }
-    #rlist li { display: grid; grid-template-columns: 4.6cqw 3.6cqw 1fr auto; align-items: center; gap: 1cqw; padding: .5cqw 1.4cqw; border-radius: .6cqw;
+    #rround { margin: 0 0 .4cqw; font-size: 1.8cqw; color: var(--dim); text-transform: uppercase; }
+    #rlist { list-style: none; margin: 0; padding: 0; width: 56cqw; display: grid; gap: .8cqw; }
+    #rlist li { display: grid; grid-template-columns: 4.6cqw 3.6cqw 1fr auto 9cqw; align-items: center; gap: 1cqw; padding: .5cqw 1.4cqw; border-radius: .6cqw;
       background: var(--panel); border-left: .6cqw solid var(--c); font-size: 2.4cqw; font-weight: 900; }
     #rlist .face { width: 3.6cqw; border-radius: .4cqw; }
     #rlist b { font-size: 3cqw; }
-    #rlist small { color: var(--dim); font-size: 1.7cqw; }
-    #rnext { margin: 1.6cqw 0 0; font-size: 1.5cqw; color: var(--dim); width: 46cqw; }
+    #rlist small { color: var(--dim); font-size: 1.5cqw; }
+    #rlist strong { text-align: right; font-size: 2.8cqw; color: var(--warm); }
+    #rlist strong em { margin-left: .6cqw; font-size: 1.5cqw; color: var(--dim); }
+    #rnext { margin: 1.6cqw 0 0; font-size: 1.5cqw; color: var(--dim); width: 56cqw; }
   </style>
 </head>
 <body>
@@ -86,7 +89,7 @@
       <div>
         <h1><img src="img/logo.webp" alt="FANGO"></h1>
         <p class="sub">Corse fuoristrada per 4 sul divano</p>
-        <p class="track">Pista <span id="tnum"></span>: <b id="tname"></b> · 3 giri</p>
+        <p class="track">Coppa su <span id="tnum"></span> piste, 3 giri l'una · si parte da <b id="tname"></b></p>
         <div id="slots"></div>
         <p class="go">Premi <b>START</b> sul telefono</p>
         <p class="keys">O Invio sulla TV. I posti vuoti li guida il computer · Tastiera: frecce (↑ avanti, ↓ retro, Shift destro nitro) o W A S D (Q nitro) · Gamepad: A avanti, B retro, X nitro</p>
@@ -107,6 +110,7 @@
     <section id="results" hidden>
       <i id="rwin" class="face"></i>
       <div>
+        <p id="rround"></p>
         <h2 id="rtitle"></h2>
         <ol id="rlist"></ol>
         <p id="rnext"></p>
@@ -117,6 +121,6 @@
   <script src="vendor/qrcode.js"></script>
   <script src="vendor/peerjs.min.js"></script>
   <script src="net.js?v=7"></script>
-  <script src="game.js?v=12"></script>
+  <script src="game.js?v=13"></script>
 </body>
 </html>

@@ -7,6 +7,8 @@ basta inquadrare il QR. I posti vuoti li guida il computer.
 - 4 piloti, ognuno con la sua auto: Rocco (rossa), Nina (blu), Bruno (gialla), Tina (verde);
   chi entra dal telefono guida l'auto del posto che gli tocca, col proprio nome
 - 3 piste (Cava Rossa, Palude Vecchia, Dune Alte), 3 giri ciascuna
+- coppa sulle 3 piste in fila: 10, 6, 3 e 1 punti per piazzamento, a pari punti
+  conta l'ultima gara; tornando alla sala d'attesa la coppa ricomincia
 - salti, fango, acqua e dossi che cambiano aderenza e velocità
 - nitro: 3 a testa, altre bombolette compaiono sulla pista
 - urti tra auto, vibrazione sul telefono a urti, atterraggi e traguardo

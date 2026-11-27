@@ -265,6 +265,10 @@
 
   let T = null, bg = null, skid = null, skidG = null;
   let cars = [], parts = [], pickups = [], trackNo = 0;
+  // coppa: le 3 piste in fila, punti per piazzamento sommati per posto (auto)
+  const POINTS = [10, 6, 3, 1];
+  let cupPts = [0, 0, 0, 0], cupGain = [0, 0, 0, 0];
+  const lastRound = () => trackNo === TRACKS.length - 1;
   let phase = "lobby", clock = 0, raceTime = 0, countdown = 0, finishedAt = 0, pickupTimer = 0, resultsTimer = 0;
 
   function setupRace() {
@@ -564,7 +568,7 @@
 
   function renderLobby() {
     $("#tname").textContent = TRACKS[trackNo].name;
-    $("#tnum").textContent = `${trackNo + 1}/${TRACKS.length}`;
+    $("#tnum").textContent = TRACKS.length;
     $("#code").textContent = Net.code || "····";
     const url = Net.padUrl();
     $("#url").textContent = url.replace(/^https?:\/\//, "") + (Net.code ? "#" + Net.code : "");
@@ -609,13 +613,19 @@
   }
   const escape = (s) => s.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
 
+  // classifica della coppa: punti, a pari punti conta l'ultima gara
+  function standings() { return [...cars].sort((a, b) => cupPts[b.i] - cupPts[a.i] || a.place - b.place); }
+
   function renderResults() {
-    const order = [...cars].sort((a, b) => a.place - b.place);
-    const best = order[0];
-    $("#rtitle").textContent = `Vince ${nameOf(best.i)}!`;
-    $("#rwin").style.setProperty("--p", best.i); $("#rwin").style.setProperty("--c", best.color);
-    $("#rlist").innerHTML = order.map((c) =>
-      `<li style="--c:${c.color};--p:${c.i}"><b>${ord(c.place)}</b><i class="face"></i><span>${escape(nameOf(c.i))}</span><small>${c.done ? fmt(c.time) : "non arrivato"}</small></li>`).join("");
+    const order = standings();
+    const top = lastRound() ? order[0] : cars.find((c) => c.place === 1);
+    $("#rround").textContent = lastRound() ? `Coppa finita · ${TRACKS.length} piste` : `Gara ${trackNo + 1} di ${TRACKS.length} · ${TRACKS[trackNo].name}`;
+    $("#rtitle").textContent = lastRound() ? `${nameOf(top.i)} vince la coppa!` : `Vince ${nameOf(top.i)}!`;
+    $("#rwin").style.setProperty("--p", top.i); $("#rwin").style.setProperty("--c", top.color);
+    $("#rlist").innerHTML = order.map((c, k) =>
+      `<li style="--c:${c.color};--p:${c.i}"><b>${ord(k + 1)}</b><i class="face"></i><span>${escape(nameOf(c.i))}</span>`
+      + `<small>${ord(c.place)} in gara · ${c.done ? fmt(c.time) : "non arrivato"}</small>`
+      + `<strong>${cupPts[c.i]} pt<em>+${cupGain[c.i]}</em></strong></li>`).join("");
   }
 
   function show(name) {
@@ -623,9 +633,10 @@
   }
 
   // ------------------------------------------------------------ flusso
+  function newCup() { trackNo = 0; cupPts = [0, 0, 0, 0]; cupGain = [0, 0, 0, 0]; }
   function toLobby() {
     phase = "lobby"; Net.setPhase("lobby");
-    setupRace();
+    newCup(); setupRace();
     show("lobby"); renderLobby();
   }
   function toCount() {
@@ -635,7 +646,9 @@
   }
   function toResults() {
     phase = "results"; Net.setPhase("results");
-    resultsTimer = 12;
+    resultsTimer = 20;
+    // punti a tutti per piazzamento, anche a chi la gara chiusa ha lasciato per strada
+    for (const c of cars) { cupGain[c.i] = POINTS[c.place - 1] || 0; cupPts[c.i] += cupGain[c.i]; }
     renderResults(); show("results");
   }
 
@@ -652,7 +665,7 @@
     for (const c of cars) {
       if (!Net.human(c.i)) continue;
       const text = phase === "lobby" ? `${TRACKS[trackNo].name} · premi START per partire`
-        : phase === "results" ? `Arrivato ${ord(c.place)} · START per la prossima pista`
+        : phase === "results" ? `${ord(c.place)} in gara · coppa ${ord(standings().indexOf(c) + 1)}, ${cupPts[c.i]} pt · START ${lastRound() ? "nuova coppa" : "prossima pista"}`
         : c.done ? `Arrivato ${ord(c.place)} · ${fmt(c.time)}`
         : `${ord(c.place)} · giro ${Math.max(1, c.lap + 1)}/${LAPS}`;
       Net.hud(c.i, text, c.nitro);
@@ -685,9 +698,11 @@
       if (allDone || (finishedAt && raceTime - finishedAt > 15)) toResults();
     } else if (phase === "results") {
       resultsTimer -= dt;
-      $("#rnext").textContent = `Prossima pista: ${TRACKS[(trackNo + 1) % TRACKS.length].name} — START per partire, o tra ${Math.ceil(resultsTimer)} s si torna alla sala d'attesa`;
-      if (Net.start) { trackNo = (trackNo + 1) % TRACKS.length; toCount(); }
-      else if (resultsTimer <= 0) { trackNo = (trackNo + 1) % TRACKS.length; toLobby(); }
+      const wait = `tra ${Math.ceil(resultsTimer)} s si torna alla sala d'attesa`;
+      $("#rnext").textContent = lastRound() ? `START per una nuova coppa, o ${wait}`
+        : `Prossima pista: ${TRACKS[trackNo + 1].name} — START per partire, o ${wait} (e la coppa ricomincia)`;
+      if (Net.start) { if (lastRound()) newCup(); else trackNo++; toCount(); }
+      else if (resultsTimer <= 0) toLobby();
     }
     updateParts(dt);
     phoneHud(dt);
