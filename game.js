@@ -174,7 +174,7 @@
 
   // ------------------------------------------------------------ auto
   const CPU_NAMES = ["Ruggine", "Bulldozer", "Polvere", "Trivella"];
-  const P = { accel: 310, drag: 1.65, nitroAccel: 380, nitroTime: 1.3, turn: 4.2, grip: 9, r: 6.5, reverse: 55 };
+  const P = { accel: 310, drag: 1.65, nitroAccel: 380, nitroTime: 1.3, turn: 4.2, grip: 9, r: 6.5, reverse: 70 };
   const SURFACE = [
     { acc: 1, drag: 1, grip: 1 },            // terra
     { acc: 0.5, drag: 2.4, grip: 0.55 },     // fango
@@ -282,7 +282,10 @@
       const vn = c.vx * nx + c.vy * ny;
       if (vn > 0) {
         c.vx -= 1.35 * vn * nx; c.vy -= 1.35 * vn * ny;
-        c.vx *= 0.82; c.vy *= 0.82;
+        // perde velocità in proporzione all'urto: strisciare lungo il bordo
+        // (vn piccolo, a ogni passo) non deve frenare l'auto fino a fermarla
+        const k = Math.max(0.6, 1 - vn / 250);
+        c.vx *= k; c.vy *= k;
         if (vn > 45) { Net.rumble(c.i, Math.min(120, vn)); sfx("hit", vn); burst(c.x + nx * P.r, c.y + ny * P.r, 6, "#e8e0d0", 40); }
       }
     }
