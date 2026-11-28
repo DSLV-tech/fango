@@ -55,7 +55,10 @@ auto ricollegandosi; nel frattempo la guida il computer.
 
 ## File
 
-- `index.html`, `game.js` — la TV: piste, fisica, IA, disegno, gara
+- `index.html`, `game.js` — la TV: disegno, suoni, interfaccia e flusso della coppa
+- `sim.js` — la gara senza disegno: piste, fisica, IA, giri e record. Il caso viene dal seme
+  della gara, quindi stesso seme e stessi comandi danno la stessa gara
+- `test/` — i test della gara, in Node (20 o più): `node --test`
 - `net.js` — telefoni (PeerJS), tastiera e gamepad → 4 posti; il protocollo è
   descritto in cima al file
 - `pad.html`, `pad.js` — il volante sul telefono

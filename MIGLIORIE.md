@@ -114,15 +114,8 @@ Per la grafica vale la regola del progetto: gli asset nuovi li disegna Gemini, i
 ## 6. Tecnica
 
 ### Struttura del codice
-- **Dividere `game.js`** (~900 righe in un'unica funzione) in moduli ES: piste, fisica, IA, disegno,
-  interfaccia, audio. Nessun build necessario: `<script type="module">`. *Medio · M*
-- **Simulazione deterministica.** La fisica usa `Math.random` in 12 punti (dossi, IA, particelle).
-  Un generatore con seme per la sola simulazione rende le gare riproducibili: servono per i test
-  e per il fantasma del record. *Alto · S*
-- **Test automatici.** Oggi nessuno. Con la simulazione deterministica e senza disegno si possono
-  provare in Node: conteggio dei giri, nessun giro rubato tornando sul traguardo, auto incastrata
-  rimessa in pista, record salvati solo per gli umani, piste al contrario con le zone giuste.
-  *Alto · M*
+- **Dividere `game.js`** (~570 righe in un'unica funzione; la gara è già a parte in `sim.js`) in
+  moduli: disegno della pista, disegno in gara, interfaccia, audio. *Medio · M*
 - **Cache delle versioni automatica.** I `?v=14` negli `<script>` vanno aggiornati a mano: un hash
   calcolato da uno script, o un service worker che gestisce gli aggiornamenti. *Basso · S*
 - **Pannello di debug** (tasto F3): passo della fisica, rimonta, bersaglio dell'IA, indice sulla
@@ -183,7 +176,17 @@ Per la grafica vale la regola del progetto: gli asset nuovi li disegna Gemini, i
 
 ## Da dove partirei
 
-1. Simulazione deterministica e test: rende sicuro tutto il resto.
-2. Auto che si sporcano di fango, schizzi nell'acqua e suoni delle superfici: il carattere del gioco.
-3. Fantasma del record e «ULTIMO GIRO!»: obiettivi chiari per chi è indietro.
-4. Canale dei comandi non ordinato e risoluzione adattiva: si sentono e si vedono sulla TV vera.
+1. Auto che si sporcano di fango, schizzi nell'acqua e suoni delle superfici: il carattere del gioco.
+2. Fantasma del record e «ULTIMO GIRO!»: obiettivi chiari per chi è indietro.
+3. Canale dei comandi non ordinato e risoluzione adattiva: si sentono e si vedono sulla TV vera.
+
+## Fatto
+
+- **Simulazione deterministica.** La gara (piste, fisica, IA, giri, record) è in `sim.js`, senza
+  disegno né DOM, e il caso viene da un generatore col seme della gara: stesso seme, stessi comandi
+  e stessi passi danno la stessa gara. Le particelle restano in `game.js` con `Math.random`: sono
+  solo disegno. La gara comunica con la TV per eventi (urti, giri, record…).
+- **Test automatici** in `test/`, con `node --test`: stesso seme stessa gara, il computer chiude i
+  3 giri su ogni pista nei due versi, nessun giro rubato tornando sul traguardo, auto incastrata
+  rimessa in pista (su terra, più indietro, mai dietro il traguardo), record solo per chi guida
+  davvero, piste al contrario con le zone negli stessi punti.
