@@ -14,8 +14,12 @@
   const canVibrate = typeof navigator.vibrate === "function";
 
   let code = "", name = "", peer = null, conn = null, retry = 0;
-  const st = { s: 0, g: 0, r: 0, n: 0, k: 0 };
-  let sent = "";
+  // nc e kc contano le pressioni di NITRO e START (protocollo e canali in net.js)
+  const st = { s: 0, g: 0, r: 0, n: 0, k: 0, nc: 0, kc: 0 };
+  let sent = "", seq = 0;
+  // il canale veloce per lo stato dei comandi: senza ordine né ritrasmissioni, uguale in net.js
+  const FAST = { negotiated: true, id: 100, ordered: false, maxRetransmits: 0 };
+  let fast = null, useFast = false;
 
   const stateEl = $("#state"), stateTxt = $("#state span");
   function say(t, on = false) { stateTxt.textContent = t; stateEl.classList.toggle("on", on); }
@@ -49,9 +53,10 @@
   function again() { clearTimeout(retry); retry = setTimeout(connect, 2000); }
   function dial() {
     if (conn) return;
-    const c = peer.connect(PREFIX + code, { serialization: "json" });
+    const c = peer.connect(PREFIX + code, { serialization: "json", reliable: true });
     c.on("open", () => {
-      conn = c; sent = "";
+      conn = c; sent = ""; useFast = false;
+      try { fast = c.peerConnection.createDataChannel("comandi", FAST); } catch { fast = null; }
       c.send({ hello: pid, name });
       say("Collegato", true);
       send(true); awake();
@@ -62,6 +67,7 @@
         document.documentElement.style.setProperty("--c", d.you.color);
         if (Number.isInteger(d.you.slot) && d.you.slot >= 0 && d.you.slot < 4) document.documentElement.style.setProperty("--p", d.you.slot);   // il ritratto del pilota
         $("#me").textContent = String(d.you.name || "").slice(0, 12);
+        useFast = d.you.fast === 1;               // una TV con la pagina vecchia legge solo il canale di PeerJS
       }
       if (d.full) say("La gara è piena (4 piloti).");
       if (typeof d.hud === "string") {
@@ -73,7 +79,9 @@
       if (Number.isInteger(d.nitro)) showNitro(Math.max(0, Math.min(9, d.nitro)));
       if (Number.isFinite(d.v) && canVibrate) navigator.vibrate(Math.min(300, d.v));
     });
-    c.on("close", () => { if (conn === c || !conn) { conn = null; say("TV scollegata: riprovo…"); again(); } });
+    c.on("close", () => {
+      if (conn === c || !conn) { conn = null; fast?.close(); fast = null; useFast = false; say("TV scollegata: riprovo…"); again(); }
+    });
     c.on("error", () => {});
   }
 
@@ -100,10 +108,12 @@
 
   function send(force) {
     if (!conn || !conn.open) return;
-    const key = `${st.s},${st.g},${st.r},${st.n},${st.k}`;
+    const key = `${st.s},${st.g},${st.r},${st.n},${st.k},${st.nc},${st.kc}`;
     if (!force && key === sent) return;
     sent = key;
-    conn.send({ ...st });
+    const msg = { ...st, q: ++seq };
+    if (useFast && fast?.readyState === "open") fast.send(JSON.stringify(msg));
+    else conn.send(msg);
   }
   setInterval(() => send(true), 150);
 
@@ -133,8 +143,8 @@
   }
   hold($("#gas"), () => (st.g = 1), () => (st.g = 0));
   hold($("#rev"), () => (st.r = 1), () => (st.r = 0));
-  hold($("#nitro"), () => (st.n = 1), () => (st.n = 0));
-  hold($("#startb"), () => (st.k = 1), () => (st.k = 0));
+  hold($("#nitro"), () => { st.n = 1; st.nc++; }, () => (st.n = 0));
+  hold($("#startb"), () => { st.k = 1; st.kc++; }, () => (st.k = 0));
 
   // sterzo: un solo dito che scorre da ◀ a ▶ senza staccarsi
   const zone = $("#steer"), [L, R] = zone.querySelectorAll("div");

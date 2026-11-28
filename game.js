@@ -1,15 +1,41 @@
 // Fango — la TV: disegno, suoni, interfaccia e flusso della coppa. La gara (piste,
 // fisica, IA, giri e record) è in sim.js; qui si ricavano dai suoi eventi suoni,
 // vibrazioni e particelle.
-// Coordinate logiche 640×360, disegnate a 1280×720 (S = 2).
+// Coordinate logiche 640×360, disegnate S volte più grandi: da 1280×720 a 1920×1080,
+// secondo i pixel veri dello schermo (vedi fit).
 (() => {
   "use strict";
   const Net = window.FangoNet, Sim = window.FangoSim;
   const { TRACKS, LAPS, STEP, locate, rng } = Sim;
-  const W = 640, H = 360, S = 2;
+  const W = 640, H = 360;
   const $ = (s) => document.querySelector(s);
   const cv = $("#game"), ctx = cv.getContext("2d");
-  cv.width = W * S; cv.height = H * S;
+
+  // risoluzione: il canvas segue i pixel veri dello schermo (grandezza a video ×
+  // devicePixelRatio), così una TV Full HD non vede un 1280×720 ingrandito. Mai sotto
+  // 1280×720 (S = 2) e mai sopra 1920×1080 (S = 3): più su le TV lente non tengono i 60 fps.
+  // S va a quarti, così le misure restano intere e un pixel in più non ridisegna tutto.
+  const S_MIN = 2, S_MAX = 3;
+  let S = 0;
+  function fit() {
+    const px = cv.getBoundingClientRect().width * (window.devicePixelRatio || 1);
+    const s = Math.max(S_MIN, Math.min(S_MAX, Math.round(px / W * 4) / 4));
+    if (s === S) return false;
+    S = s; cv.width = W * S; cv.height = H * S;
+    return true;
+  }
+  fit();
+  // finestra ridimensionata o spostata su un altro schermo: pista ridisegnata, segni delle gomme riscalati
+  let refit = 0;
+  addEventListener("resize", () => {
+    clearTimeout(refit);
+    refit = setTimeout(() => {
+      if (!fit() || !T) return;
+      bg = paintTrack(T);
+      const old = skid;
+      newSkid(); skidG.drawImage(old, 0, 0, W, H);
+    }, 200);
+  });
 
   // una coppa sì e una no le piste si corrono al contrario (vedi newCup)
   let rev = false;
@@ -32,11 +58,11 @@
     const c = document.createElement("canvas"); c.width = W * S; c.height = H * S;
     const g = c.getContext("2d"); g.scale(S, S);
     const R = rng(T.N * 7 + 3), def = T.def;
-    // un pixel della texture = un pixel della tela
     const tex = (name, color) => {
       const im = ART[`${def.art}-${name}`];
       if (!im) return color;
-      const p = g.createPattern(im, "repeat"); p.setTransform(new DOMMatrix().scale(1 / S)); return p;
+      // grandezza scelta a 1280×720: la stessa a ogni risoluzione
+      const p = g.createPattern(im, "repeat"); p.setTransform(new DOMMatrix().scale(1 / S_MIN)); return p;
     };
     g.fillStyle = tex("terreno", def.ground[0]); g.fillRect(0, 0, W, H);
 
@@ -213,11 +239,16 @@
     T = race.T; cars = race.cars;
     newRecord = null; recFlash = 0;
     bg = paintTrack(T);
-    skid = document.createElement("canvas"); skid.width = W * S; skid.height = H * S;
-    skidG = skid.getContext("2d"); skidG.scale(S, S);
+    newSkid();
     parts = []; splashes = [];
     mud = [0, 0, 0, 0];
     dirt = cars.map((c) => dirtOf(race.seed + c.i * 7919));
+  }
+
+  // il foglio dei segni delle gomme, grande quanto il canvas
+  function newSkid() {
+    skid = document.createElement("canvas"); skid.width = W * S; skid.height = H * S;
+    skidG = skid.getContext("2d"); skidG.scale(S, S);
   }
 
   // dagli eventi della gara: suoni, vibrazioni, particelle e l'archivio dei record
@@ -715,7 +746,7 @@
   }
 
   // per i test dal browser
-  window.Fango = { Sim, get race() { return race; }, get cars() { return cars; }, get mud() { return mud; }, get phase() { return phase; }, get track() { return T; }, records,
+  window.Fango = { Sim, get S() { return S; }, get race() { return race; }, get cars() { return cars; }, get mud() { return mud; }, get phase() { return phase; }, get track() { return T; }, records,
     get rev() { return rev; }, set rev(v) { rev = !!v; }, setupRace, start: () => toCount() };
 
   loadArt().then(() => { toLobby(); requestAnimationFrame(frame); });

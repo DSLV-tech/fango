@@ -115,8 +115,6 @@ Per la grafica vale la regola del progetto: gli asset nuovi li disegna Gemini, i
   pista, FPS. Avrebbe accorciato molto le verifiche. *Medio · S*
 
 ### Disegno e prestazioni
-- **Risoluzione adattiva.** Il canvas è fisso a 1280×720: su una TV 4K si vede ingrandito e
-  morbido. Disegnare a `devicePixelRatio` (con un tetto per le TV lente). *Alto · S*
 - **Interpolazione tra i passi.** La fisica va a 120 Hz fissi ma il disegno mostra l'ultimo passo:
   su TV a 50 Hz o con frame persi le auto scattano. Disegnare tra il passo precedente e l'attuale.
   *Medio · S*
@@ -133,9 +131,6 @@ Per la grafica vale la regola del progetto: gli asset nuovi li disegna Gemini, i
   aggiungere attrito tangenziale e scintille rende chiaro il contatto. *Basso · S*
 
 ### Rete e telefoni
-- **Canale dei comandi non ordinato.** I comandi viaggiano su un canale affidabile e ordinato: un
-  pacchetto perso blocca quelli dopo. Per lo stato dei comandi, che si rimanda ogni 150 ms, conviene
-  `ordered: false, maxRetransmits: 0`. Meno ritardo con Wi-Fi disturbato. *Alto · S*
 - **Server TURN.** Senza TURN alcuni telefoni (rete ospiti, 4G, NAT rigidi) non si collegano mai.
   *Alto · S–M (serve un servizio)*
 - **Dipendenza dal server pubblico di PeerJS.** Se è giù, non si gioca. Alternativa: un piccolo
@@ -170,9 +165,20 @@ Per la grafica vale la regola del progetto: gli asset nuovi li disegna Gemini, i
 ## Da dove partirei
 
 1. Fantasma del record e «ULTIMO GIRO!»: obiettivi chiari per chi è indietro.
-2. Canale dei comandi non ordinato e risoluzione adattiva: si sentono e si vedono sulla TV vera.
+2. Interpolazione tra i passi e browser delle smart TV: da provare su una TV vera.
 
 ## Fatto
+
+- **Canale dei comandi senza ordine e senza ritrasmissioni.** PeerJS 1.5.5 apriva il canale con
+  `ordered: false` ma ritrasmetteva tutto: uno stato vecchio poteva arrivare dopo uno nuovo e
+  sovrascriverlo. Ora lo stato dei comandi viaggia su un secondo canale pre-negoziato sulla stessa
+  connessione (`ordered: false, maxRetransmits: 0`), con un numero d'ordine che scarta i pacchetti
+  vecchi e due contatori che fanno arrivare NITRO e START anche se si perde il pacchetto col tasto
+  giù. Il canale di PeerJS, ora affidabile e ordinato, resta per hello, HUD e vibrazioni; un
+  telefono con la pagina vecchia funziona lo stesso. Dettagli in cima a `net.js`.
+- **Risoluzione adattiva.** Il canvas segue i pixel veri dello schermo (grandezza a video ×
+  `devicePixelRatio`), da 1280×720 a un tetto di 1920×1080 per le TV lente; texture della stessa
+  grandezza a ogni risoluzione, pista ridisegnata se la finestra cambia.
 
 - **Suoni delle superfici**, sintetizzati come gli altri: ciaff entrando nel fango, splash
   nell'acqua, ghiaia sui dossi (più forti quanto più si arriva veloci) e sgommata nel testacoda,

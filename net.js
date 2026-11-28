@@ -5,9 +5,21 @@
 // Protocollo (JSON sul canale dati, telefono → TV):
 //   { hello: pid, name }      all'apertura: pid è fisso per telefono, così chi
 //                             si ricollega a metà gara ritrova la sua auto
-//   { s, g, r, n, k }         sterzo da -1 a 1, avanti, retromarcia, nitro, start (0/1)
+//   { s, g, r, n, k, nc, kc, q }   sterzo da -1 a 1, avanti, retromarcia, nitro, start
+//                             (0/1); nc e kc contano le pressioni di NITRO e START, q
+//                             cresce a ogni invio. Il telefono lo manda a ogni cambio e
+//                             comunque ogni 150 ms.
 // TV → telefono:
-//   { you: { slot, name, color } }   il posto assegnato (slot = auto e pilota)
+//   { you: { slot, name, color, fast } }   il posto assegnato (slot = auto e pilota);
+//                                    fast: la TV legge i comandi dal canale veloce
+//
+// Due canali sulla stessa connessione. Quello di PeerJS è affidabile e ordinato: hello,
+// posto, HUD e vibrazioni. Lo stato dei comandi viaggia su un secondo canale,
+// pre-negoziato da entrambe le parti (FAST), senza ordine e senza ritrasmissioni: un
+// pacchetto perso non trattiene quelli dopo, tanto ne arriva uno nuovo entro 150 ms.
+// q scarta gli stati vecchi arrivati in ritardo; nc e kc fanno arrivare il colpo di NITRO
+// e START anche se si perde proprio il pacchetto col tasto giù. Un telefono con la pagina
+// vecchia manda i comandi sul canale di PeerJS, e vanno bene lo stesso.
 //   { hud: "testo", phase, nitro, big }   posizione, giro e bombolette, ogni 250 ms;
 //                                    big = { pos, gap, lap } solo in gara e in pausa
 //                                    (phase: lobby, race, pause, results)
@@ -21,6 +33,7 @@
   const ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";   // niente 0/O e 1/I
   const STORE = "fango.code";
   const STALE_MS = 1500;                               // il telefono manda lo stato ogni 150 ms
+  const FAST = { negotiated: true, id: 100, ordered: false, maxRetransmits: 0 };   // uguale in pad.js
   const COLORS = ["#e8443a", "#3a86ef", "#f2c230", "#3fbf5a"];
   // ogni posto è un'auto col suo pilota (i ritratti in img/piloti.webp, nello stesso ordine)
   const NAMES = ["Rocco", "Nina", "Bruno", "Tina"];
@@ -37,7 +50,8 @@
 
   function source(id, kind) {
     let s = sources.get(id);
-    if (!s) sources.set(id, (s = { id, kind, slot: null, s: 0, g: 0, r: 0, n: 0, k: 0, kPrev: 0, live: true, last: performance.now(), conn: null, name: "" }));
+    if (!s) sources.set(id, (s = { id, kind, slot: null, s: 0, g: 0, r: 0, n: 0, k: 0, kPrev: 0, live: true, last: performance.now(), conn: null, name: "",
+      q: -1, nc: null, kc: null, nHit: 0, kHit: 0 }));
     return s;
   }
   function claim(src) {
@@ -56,7 +70,17 @@
     src.slot = null; changed();
   }
   function tell(src) {
-    if (src.conn?.open && src.slot !== null) { const sl = slots[src.slot]; src.conn.send({ you: { slot: sl.i, name: sl.name, color: sl.color } }); }
+    if (src.conn?.open && src.slot !== null) { const sl = slots[src.slot]; src.conn.send({ you: { slot: sl.i, name: sl.name, color: sl.color, fast: 1 } }); }
+  }
+
+  // lo stato dei comandi di un telefono, da uno qualunque dei due canali (vedi in cima)
+  function input(src, d) {
+    if (!Number.isFinite(d.s)) return;
+    if (Number.isFinite(d.q)) { if (d.q <= src.q) return; src.q = d.q; }
+    src.s = Math.max(-1, Math.min(1, d.s)); src.g = d.g ? 1 : 0; src.r = d.r ? 1 : 0; src.n = d.n ? 1 : 0; src.k = d.k ? 1 : 0;
+    if (Number.isInteger(d.nc)) { if (src.nc !== null && d.nc !== src.nc) src.nHit = 1; src.nc = d.nc; }
+    if (Number.isInteger(d.kc)) { if (src.kc !== null && d.kc !== src.kc) src.kHit = 1; src.kc = d.kc; }
+    src.last = performance.now(); src.live = true;
   }
 
   // ------------------------------------------------------------ telefoni
@@ -67,7 +91,16 @@
     const p = peer = new window.Peer(PREFIX + code, { debug: 0 });
     p.on("open", () => { remember(code); status = "ready"; changed(); });
     p.on("connection", (c) => {
-      let src = null;
+      let src = null, fast = null;
+      c.on("open", () => {
+        try {
+          fast = c.peerConnection.createDataChannel("comandi", FAST);
+          fast.onmessage = (e) => {
+            if (!src || src.conn !== c || typeof e.data !== "string") return;
+            try { const d = JSON.parse(e.data); if (d && typeof d === "object") input(src, d); } catch { /* non è JSON */ }
+          };
+        } catch { fast = null; /* niente canale veloce: i comandi arrivano da quello di PeerJS */ }
+      });
       c.on("data", (d) => {
         if (!d || typeof d !== "object") return;
         if (typeof d.hello === "string") {
@@ -75,6 +108,7 @@
           src = source("ph" + d.hello, "phone");
           if (src.conn && src.conn !== c) src.conn.close();
           src.conn = c; src.live = true; src.last = performance.now();
+          src.q = -1; src.nc = src.kc = null; src.nHit = src.kHit = 0;    // un telefono ricollegato riparte da capo
           const name = typeof d.name === "string" ? d.name.replace(/[^\p{L}\p{N} ._'-]/gu, "").trim().slice(0, 12) : "";
           if (name) { src.name = name; if (src.slot !== null) slots[src.slot].name = name; }
           if (!claim(src)) c.send({ full: true });
@@ -82,11 +116,10 @@
           changed();
           return;
         }
-        if (!src || src.conn !== c || !Number.isFinite(d.s)) return;
-        src.s = Math.max(-1, Math.min(1, d.s)); src.g = d.g ? 1 : 0; src.r = d.r ? 1 : 0; src.n = d.n ? 1 : 0; src.k = d.k ? 1 : 0;
-        src.last = performance.now(); src.live = true;
+        if (src && src.conn === c) input(src, d);
       });
       c.on("close", () => {
+        fast?.close();
         if (!src || src.conn !== c) return;
         src.conn = null; src.live = false; src.s = src.g = src.r = src.n = src.k = 0;
         if (phase === "lobby") release(src);   // in gara l'auto resta sua: la guida il computer finché non torna
@@ -150,6 +183,9 @@
     startEdge = false;
     for (const s of sources.values()) {
       if (s.kind === "phone" && s.live && now - s.last > STALE_MS) { s.s = s.g = s.r = s.n = s.k = 0; }
+      // una pressione contata ma mai vista col tasto giù (pacchetto perso): un colpo adesso
+      if (s.nHit) { s.n = 1; s.nHit = 0; }
+      if (s.kHit) { s.k = 1; s.kHit = 0; }
       if (s.slot !== null && s.k && !s.kPrev) startEdge = true;
       s.kPrev = s.k;
     }

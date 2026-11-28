@@ -26,6 +26,7 @@ basta inquadrare il QR. I posti vuoti li guida il computer.
 - un'auto incastrata per 4 s torna in mezzo alla pista, poco più indietro
 - pausa in gara: START (sul telefono diventa PAUSA) o Esc sulla TV
 - in gara il telefono mostra in grande posizione, distacco e giro
+- il disegno segue la risoluzione dello schermo, da 1280×720 fino a 1920×1080
 
 ## Giocare
 
