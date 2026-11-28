@@ -19,7 +19,7 @@
   // La grafica viene da Gemini (design/ sono i bozzetti, img/ gli asset scontornati):
   // texture di terreno e strada ripetute, oggetti di contorno a fogli 4×2 da 160 px.
   const ART = {};
-  const ART_FILES = ["auto", "nitro", "cava-terreno", "cava-strada", "cava-oggetti", "palude-terreno", "palude-strada", "palude-oggetti", "dune-terreno", "dune-strada", "dune-oggetti", "fango", "pozzanghere"];
+  const ART_FILES = ["auto", "nitro", "cava-terreno", "cava-strada", "cava-oggetti", "palude-terreno", "palude-strada", "palude-oggetti", "dune-terreno", "dune-strada", "dune-oggetti", "fango", "pozzanghere", "schizzi"];
   const loadArt = () => Promise.all(ART_FILES.map((n) => new Promise((ok) => {
     const im = new Image();
     im.onload = () => { ART[n] = im; ok(); };
@@ -216,6 +216,8 @@
     skid = document.createElement("canvas"); skid.width = W * S; skid.height = H * S;
     skidG = skid.getContext("2d"); skidG.scale(S, S);
     parts = [];
+    mud = [0, 0, 0, 0];
+    dirt = cars.map((c) => dirtOf(race.seed + c.i * 7919));
   }
 
   // dagli eventi della gara: suoni, vibrazioni, particelle e l'archivio dei record
@@ -236,11 +238,15 @@
     finish: (e) => { sfx("finish"); Net.rumble(e.i, 200); },
   };
 
-  // segni delle gomme, polvere e fiamma del nitro: solo disegno, ricavati dallo stato dell'auto
+  // segni delle gomme, polvere, fiamma del nitro e fango sulla carrozzeria: solo disegno,
+  // ricavati dallo stato dell'auto
   function trail(c, dt) {
     if (c.z > 0.5) return;
     const fx = Math.cos(c.a), fy = Math.sin(c.a), s = T.surf[c.idx];
     const lat = -c.vx * fy + c.vy * fx, speed = Math.hypot(c.vx, c.vy);
+    const moving = Math.min(1, speed / 40);
+    if (s === 1) mud[c.i] = Math.min(1, mud[c.i] + MUD_GAIN * moving * dt);
+    else if (s === 2) mud[c.i] *= Math.exp(-MUD_WASH * moving * dt);
     if (Math.abs(lat) > 28 || c.boost > 0 || s === 1) {
       skidG.fillStyle = s === 1 ? "rgba(40,22,8,.35)" : "rgba(50,30,15,.16)";
       for (const side of [-1, 1]) skidG.fillRect(c.x - fx * 5 - fy * 3.5 * side - 1, c.y - fy * 5 + fx * 3.5 * side - 1, 2, 2);
@@ -264,6 +270,55 @@
     }
   }
 
+  // ------------------------------------------------------------ fango sulle auto
+  // Ogni secondo passato nel fango sporca l'auto, l'acqua ne lava via una parte; ogni gara
+  // si riparte puliti. Lo sporco sono gli schizzi di Gemini (schizzi.webp, 8 celle da 160 px)
+  // appoggiati sullo sprite dell'auto e ritagliati sulla sua sagoma: compaiono uno alla volta,
+  // prima su fiancate vicino alle ruote, paraurti e retro, poi anche su cofano e tetto, e
+  // l'acqua toglie per primi gli ultimi arrivati.
+  const MUD_GAIN = 0.35, MUD_WASH = 0.8, SPOTS = 16;
+  const STREAKS = [1, 4, 5, 7];              // gli schizzi a colata, disegnati in diagonale
+  let mud = [0, 0, 0, 0], dirt = [];
+
+  // in coordinate della cella di auto.webp: auto larga ~104 px e lunga ~149, muso in basso
+  function dirtOf(seed) {
+    const R = rng(seed), spots = [];
+    for (let k = 0; k < SPOTS; k++) {
+      let x, y;
+      if (k < SPOTS * 0.6) {
+        const side = R() < 0.5 ? -1 : 1;
+        if (R() < 0.7) { x = 80 + side * (32 + R() * 14); y = R() < 0.5 ? 22 + R() * 38 : 100 + R() * 45; }   // ruote
+        else { x = 48 + R() * 64; y = R() < 0.5 ? 6 + R() * 14 : 138 + R() * 14; }                          // paraurti
+      } else { x = 44 + R() * 72; y = 20 + R() * 120; }                                                     // ovunque
+      const n = (R() * 8) | 0;
+      // le colate vanno all'indietro, come il fango tirato su dalle ruote
+      const a = STREAKS.includes(n) ? -0.87 + (R() - 0.5) * 0.6 : R() * Math.PI * 2;
+      spots.push({ n, x, y, a, size: 30 + R() * 22 });
+    }
+    const cv = document.createElement("canvas"); cv.width = cv.height = CELL;
+    return { cv, g: cv.getContext("2d"), spots, shown: 0 };
+  }
+
+  // l'auto con i suoi schizzi, ridisegnata solo quando ne cambia il numero; null se pulita
+  function dirtyCar(c) {
+    const d = dirt[c.i], n = Math.min(SPOTS, Math.floor(mud[c.i] * SPOTS));
+    if (!ART.schizzi || !d || n === 0) return null;
+    if (n !== d.shown) {
+      const g = d.g;
+      d.shown = n;
+      g.clearRect(0, 0, CELL, CELL);
+      g.drawImage(ART.auto, c.i * CELL, 0, CELL, CELL, 0, 0, CELL, CELL);
+      g.globalCompositeOperation = "source-atop";
+      for (const sp of d.spots.slice(0, n)) {
+        g.save(); g.translate(sp.x, sp.y); g.rotate(sp.a);
+        g.drawImage(ART.schizzi, (sp.n % 4) * CELL, (sp.n >> 2) * CELL, CELL, CELL, -sp.size / 2, -sp.size / 2, sp.size, sp.size);
+        g.restore();
+      }
+      g.globalCompositeOperation = "source-over";
+    }
+    return d.cv;
+  }
+
   // ------------------------------------------------------------ disegno
   // auto.webp: 4 celle da 160 px, l'auto vista dall'alto col muso in basso; lunga ~20 px di gioco
   const CAR_SIZE = 21.5;
@@ -284,7 +339,9 @@
     }
     if (ART.auto) {
       ctx.rotate(-Math.PI / 2);
-      ctx.drawImage(ART.auto, c.i * CELL, 0, CELL, CELL, -CAR_SIZE / 2, -CAR_SIZE / 2, CAR_SIZE, CAR_SIZE);
+      const dirty = dirtyCar(c);
+      if (dirty) ctx.drawImage(dirty, -CAR_SIZE / 2, -CAR_SIZE / 2, CAR_SIZE, CAR_SIZE);
+      else ctx.drawImage(ART.auto, c.i * CELL, 0, CELL, CELL, -CAR_SIZE / 2, -CAR_SIZE / 2, CAR_SIZE, CAR_SIZE);
     } else { ctx.fillStyle = colorOf(c.i); ctx.fillRect(-9, -5.5, 18, 11); }
     ctx.restore();
     ctx.globalAlpha = 1;
@@ -564,7 +621,7 @@
   }
 
   // per i test dal browser
-  window.Fango = { Sim, get race() { return race; }, get cars() { return cars; }, get phase() { return phase; }, get track() { return T; }, records,
+  window.Fango = { Sim, get race() { return race; }, get cars() { return cars; }, get mud() { return mud; }, get phase() { return phase; }, get track() { return T; }, records,
     get rev() { return rev; }, set rev(v) { rev = !!v; }, setupRace, start: () => toCount() };
 
   loadArt().then(() => { toLobby(); requestAnimationFrame(frame); });

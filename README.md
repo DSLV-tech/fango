@@ -10,6 +10,8 @@ basta inquadrare il QR. I posti vuoti li guida il computer.
 - coppa sulle 3 piste in fila: 10, 6, 3 e 1 punti per piazzamento, a pari punti
   conta l'ultima gara; tornando alla sala d'attesa la coppa ricomincia
 - salti, fango, acqua e dossi che cambiano aderenza e velocità
+- le auto si sporcano passando nel fango e l'acqua ne lava via una parte: si vede
+  chi ha preso la strada peggiore
 - nitro: 3 a testa, altre bombolette compaiono sulla pista
 - urti tra auto, vibrazione sul telefono a urti, atterraggi e traguardo; chi viene
   colpito forte di fianco fa un breve testacoda
@@ -68,4 +70,5 @@ auto ricollegandosi; nel frattempo la guida il computer.
 - `img/` — gli asset disegnati da Gemini e scontornati: `auto.webp` e `piloti.webp`
   (4 celle, nell'ordine dei posti), `*-oggetti.webp` (8 celle da 160 px),
   `*-terreno.webp` e `*-strada.webp` (texture ripetute), `fango.webp` e
-  `pozzanghere.webp` (6 celle da 200 px, nei tratti di fango e d'acqua), `logo`, `nitro`, `volante`
+  `pozzanghere.webp` (6 celle da 200 px, nei tratti di fango e d'acqua), `schizzi.webp`
+  (8 celle da 160 px, il fango che sporca le auto), `logo`, `nitro`, `volante`

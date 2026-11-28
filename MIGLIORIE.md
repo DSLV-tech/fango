@@ -9,10 +9,7 @@ Per la grafica vale la regola del progetto: gli asset nuovi li disegna Gemini, i
 ## 1. Estetica — in pista
 
 ### Auto
-- **Le auto si sporcano di fango.** È il nome del gioco: ogni passaggio nel fango o nell'acqua
-  aggiunge una patina sulla carrozzeria (overlay semitrasparente sullo sprite, che l'acqua in parte
-  lava via). Si vede subito chi ha preso la strada peggiore. *Impatto alto · S–M*
-- **Ombra vera dell'auto.** Oggi è un rettangolo arrotondato (`drawCar`, game.js:563). Un'ombra
+- **Ombra vera dell'auto.** Oggi è un rettangolo arrotondato (`drawCar` in game.js). Un'ombra
   ricavata dallo sprite (silhouette scurita e sfocata, calcolata una volta) è molto più credibile,
   soprattutto nei salti. *Medio · S*
 - **Rollio e beccheggio finti.** Leggera deformazione dello sprite in curva e in frenata
@@ -176,11 +173,17 @@ Per la grafica vale la regola del progetto: gli asset nuovi li disegna Gemini, i
 
 ## Da dove partirei
 
-1. Auto che si sporcano di fango, schizzi nell'acqua e suoni delle superfici: il carattere del gioco.
+1. Schizzi nell'acqua e suoni delle superfici: il carattere del gioco.
 2. Fantasma del record e «ULTIMO GIRO!»: obiettivi chiari per chi è indietro.
 3. Canale dei comandi non ordinato e risoluzione adattiva: si sentono e si vedono sulla TV vera.
 
 ## Fatto
+
+- **Le auto si sporcano di fango.** Gemini ha ridisegnato le 4 auto pulite (`img/auto.webp`; prima
+  la blu e la verde partivano già infangate) e 8 schizzi di fango (`img/schizzi.webp`). Ogni
+  secondo nel fango aggiunge schizzi sulla carrozzeria, ritagliati sulla sagoma dell'auto: prima
+  fiancate vicino alle ruote e paraurti, poi cofano e tetto. L'acqua ne lava via una parte, ogni
+  gara si riparte puliti.
 
 - **Simulazione deterministica.** La gara (piste, fisica, IA, giri, record) è in `sim.js`, senza
   disegno né DOM, e il caso viene da un generatore col seme della gara: stesso seme, stessi comandi
