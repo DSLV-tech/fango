@@ -11,7 +11,7 @@ basta inquadrare il QR. I posti vuoti li guida il computer.
   conta l'ultima gara; tornando alla sala d'attesa la coppa ricomincia
 - salti, fango, acqua e dossi che cambiano aderenza e velocità
 - le auto si sporcano passando nel fango e l'acqua ne lava via una parte: si vede
-  chi ha preso la strada peggiore
+  chi ha preso la strada peggiore; entrando in una pozza l'acqua schizza ai lati
 - nitro: 3 a testa, altre bombolette compaiono sulla pista
 - urti tra auto, vibrazione sul telefono a urti, atterraggi e traguardo; chi viene
   colpito forte di fianco fa un breve testacoda
@@ -71,4 +71,5 @@ auto ricollegandosi; nel frattempo la guida il computer.
   (4 celle, nell'ordine dei posti), `*-oggetti.webp` (8 celle da 160 px),
   `*-terreno.webp` e `*-strada.webp` (texture ripetute), `fango.webp` e
   `pozzanghere.webp` (6 celle da 200 px, nei tratti di fango e d'acqua), `schizzi.webp`
-  (8 celle da 160 px, il fango che sporca le auto), `logo`, `nitro`, `volante`
+  (8 celle da 160 px, il fango che sporca le auto), `spruzzi.webp` (8 celle da 160 px,
+  l'acqua che schizza entrando nelle pozze), `logo`, `nitro`, `volante`

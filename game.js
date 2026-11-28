@@ -19,7 +19,7 @@
   // La grafica viene da Gemini (design/ sono i bozzetti, img/ gli asset scontornati):
   // texture di terreno e strada ripetute, oggetti di contorno a fogli 4×2 da 160 px.
   const ART = {};
-  const ART_FILES = ["auto", "nitro", "cava-terreno", "cava-strada", "cava-oggetti", "palude-terreno", "palude-strada", "palude-oggetti", "dune-terreno", "dune-strada", "dune-oggetti", "fango", "pozzanghere", "schizzi"];
+  const ART_FILES = ["auto", "nitro", "cava-terreno", "cava-strada", "cava-oggetti", "palude-terreno", "palude-strada", "palude-oggetti", "dune-terreno", "dune-strada", "dune-oggetti", "fango", "pozzanghere", "schizzi", "spruzzi"];
   const loadArt = () => Promise.all(ART_FILES.map((n) => new Promise((ok) => {
     const im = new Image();
     im.onload = () => { ART[n] = im; ok(); };
@@ -215,7 +215,7 @@
     bg = paintTrack(T);
     skid = document.createElement("canvas"); skid.width = W * S; skid.height = H * S;
     skidG = skid.getContext("2d"); skidG.scale(S, S);
-    parts = [];
+    parts = []; splashes = [];
     mud = [0, 0, 0, 0];
     dirt = cars.map((c) => dirtOf(race.seed + c.i * 7919));
   }
@@ -224,6 +224,7 @@
   const FX = {
     nitro: (e) => { sfx("nitro"); Net.rumble(e.i, 60); },
     land: (e) => { burst(e.x, e.y, 10, T.def.dirt, 60); Net.rumble(e.i, 50); sfx("land"); },
+    splash: (e) => splash(e),
     wall: (e) => { Net.rumble(e.i, Math.min(120, e.v)); sfx("hit", e.v); burst(e.x, e.y, 6, "#e8e0d0", 40); },
     bump: (e) => { sfx("bump", e.v); Net.rumble(e.i, 40); Net.rumble(e.j, 40); },
     spin: (e) => { Net.rumble(e.i, 120); burst(e.x, e.y, 8, "#e8e0d0", 50); },
@@ -319,6 +320,41 @@
     return d.cv;
   }
 
+  // ------------------------------------------------------------ spruzzi d'acqua
+  // spruzzi.webp di Gemini, 8 celle da 160 px: 0-1 anello d'onda, 2-3 ventaglio rivolto a
+  // destra (la punta sul bordo sinistro della cella), 4-5 corona, 6-7 gocce sparse.
+  // Entrando in una pozza: un anello che si allarga sotto l'auto, una corona, due ventagli
+  // ai lati e qualche goccia, tanto più grandi quanto più l'auto è veloce. Durano meno di
+  // un secondo; l'anello resta sotto le auto, il resto sopra.
+  let splashes = [];
+  function splash(e) {
+    if (!ART.spruzzi) return;
+    const k = Math.min(1.5, e.v / 110), any = (first) => first + ((Math.random() * 2) | 0);
+    const add = (cell, x, y, ang, from, to, life, over, tip = false) => splashes.push({ cell, x, y, ang, from, to, life, over, tip, t: 0 });
+    add(any(0), e.x, e.y, Math.random() * 7, 6, 16 + 16 * k, 0.7, false);
+    add(any(4), e.x, e.y, Math.random() * 7, 8, 12 + 12 * k, 0.4, true);
+    add(any(6), e.x, e.y, Math.random() * 7, 6, 12 + 10 * k, 0.5, true);
+    for (const side of [-1, 1]) {
+      // verso l'esterno e un po' all'indietro, dal fianco dell'auto
+      const n = e.a + side * Math.PI / 2, ang = n + side * 0.35;
+      add(any(2), e.x + Math.cos(n) * 4, e.y + Math.sin(n) * 4, ang, 5, 10 + 12 * k, 0.45, true, true);
+    }
+  }
+  function updateSplashes(dt) {
+    for (let k = splashes.length - 1; k >= 0; k--) if ((splashes[k].t += dt) >= splashes[k].life) splashes.splice(k, 1);
+  }
+  function drawSplashes(over) {
+    for (const p of splashes) {
+      if (p.over !== over) continue;
+      const u = p.t / p.life, size = p.from + (p.to - p.from) * (1 - (1 - u) * (1 - u));   // si apre in fretta, poi rallenta
+      ctx.globalAlpha = 0.9 * Math.min(1, 2.2 * (1 - u));
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.ang);
+      ctx.drawImage(ART.spruzzi, (p.cell % 4) * CELL, (p.cell >> 2) * CELL, CELL, CELL, p.tip ? -size * 0.03 : -size / 2, -size / 2, size, size);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+
   // ------------------------------------------------------------ disegno
   // auto.webp: 4 celle da 160 px, l'auto vista dall'alto col muso in basso; lunga ~20 px di gioco
   const CAR_SIZE = 21.5;
@@ -352,6 +388,7 @@
     if (!bg) { ctx.fillStyle = "#1a120c"; ctx.fillRect(0, 0, cv.width, cv.height); return; }
     ctx.drawImage(bg, 0, 0); ctx.drawImage(skid, 0, 0);
     ctx.setTransform(S, 0, 0, S, 0, 0);
+    drawSplashes(false);
     for (const p of race.pickups) {
       const bob = Math.sin(p.t * 6) * 1.2, glow = 0.35 + 0.2 * Math.sin(p.t * 8);
       ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(p.x + 2, p.y + 4, 4, 2, 0, 0, 7); ctx.fill();
@@ -362,6 +399,7 @@
     for (const p of parts) { ctx.globalAlpha = Math.min(1, p.life / p.max * 1.5); ctx.fillStyle = p.col; ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size); }
     ctx.globalAlpha = 1;
     for (const c of [...cars].sort((a, b) => a.z - b.z)) drawCar(c);
+    drawSplashes(true);
   }
 
   // ------------------------------------------------------------ audio (sintetizzato)
@@ -605,7 +643,7 @@
       if (Net.start) { if (lastRound()) newCup(); else trackNo++; toCount(); }
       else if (resultsTimer <= 0) toLobby();
     }
-    updateParts(dt);
+    if (phase !== "pause") { updateParts(dt); updateSplashes(dt); }     // in pausa si ferma anche la polvere
     phoneHud(dt);
     engineSound();
   }

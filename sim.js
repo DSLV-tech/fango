@@ -114,7 +114,8 @@
   //   humans[i]  il posto è di un giocatore (anche se ora è scollegato): conta per la
   //              rimonta e per chiudere la gara; senza, vale «ha i comandi»
   // e restituisce gli eventi del passo, { type, i, … }:
-  //   nitro, land {x, y}, wall {x, y, v}, bump {j, v}, spin {x, y}, pick {x, y},
+  //   nitro, land {x, y}, splash {x, y, a, v} (entra in acqua: posizione, direzione, velocità),
+  //   wall {x, y, v}, bump {j, v}, spin {x, y}, pick {x, y},
   //   unstick {x, y} (dove era incastrata), lap {n, t}, record {t}, finish
   // best è il record del giro da battere: lo battono solo i giri di chi guida davvero.
   function race({ track = 0, rev = false, seed = 1, best = Infinity } = {}) {
@@ -245,6 +246,9 @@
           c.z = 0; c.vz = 0;
         }
       }
+      // l'acqua schizza quando un'auto ci entra, o ci atterra, abbastanza veloce
+      if (T.surf[c.idx] === 2 && c.z <= 0 && (air || T.surf[prevIdx] !== 2) && speed > 30)
+        ev.push({ type: "splash", i: c.i, x: c.x, y: c.y, a: c.a, v: speed });
 
       // bordi della pista
       const lim = T.hw - P.r + 1;

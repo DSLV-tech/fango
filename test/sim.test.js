@@ -117,6 +117,22 @@ test("rimessa in pista subito dopo il traguardo, non torna mai dietro la linea",
   assert.equal(c.lap, 1);
 });
 
+test("l'acqua schizza quando un'auto ci entra: dentro le pozze, al più una volta per pozza a giro", () => {
+  for (const [track, def] of TRACKS.entries()) {
+    const r = Sim.race({ track, seed: 3 });
+    const events = run(r), pools = def.zones.filter((z) => z.t === "water").length;
+    for (const c of r.cars) {
+      const splashes = ofType(events, "splash", c.i);
+      assert.ok(splashes.length <= pools * LAPS, `${def.name}, auto ${c.i}: ${splashes.length} schizzi`);
+      if (pools) assert.ok(splashes.length >= LAPS, `${def.name}, auto ${c.i}: almeno una volta a giro`);
+      for (const e of splashes) {
+        assert.equal(r.T.surf[Sim.locate(r.T, e.x, e.y, 0, true).i], 2, "nell'acqua");
+        assert.ok(e.v > 30);
+      }
+    }
+  }
+});
+
 test("il record del giro lo batte solo chi guida davvero", async (t) => {
   await t.test("solo computer: nessun record", () => {
     const events = run(Sim.race({ track: 2, seed: 5 }));

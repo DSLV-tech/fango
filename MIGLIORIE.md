@@ -24,8 +24,6 @@ Per la grafica vale la regola del progetto: gli asset nuovi li disegna Gemini, i
 ### Superfici ed effetti
 - **Particelle tonde o a sprite.** Ora sono quadratini (`fillRect`). Gocce per l'acqua, zolle per
   il fango, sbuffi morbidi per la polvere. *Medio · S*
-- **Schizzi nell'acqua.** Entrando in una pozza: anello d'onda che si allarga e spruzzi laterali
-  proporzionali alla velocità. *Alto · S*
 - **Segni delle gomme che sbiadiscono.** Il foglio `skid` accumula per sempre: dopo tre giri il
   fango è tutto nero. Dissolvenza lenta (un rettangolo semitrasparente del colore della strada ogni
   pochi secondi) oppure un limite di segni. *Medio · S*
@@ -173,11 +171,17 @@ Per la grafica vale la regola del progetto: gli asset nuovi li disegna Gemini, i
 
 ## Da dove partirei
 
-1. Schizzi nell'acqua e suoni delle superfici: il carattere del gioco.
+1. Suoni delle superfici: il carattere del gioco.
 2. Fantasma del record e «ULTIMO GIRO!»: obiettivi chiari per chi è indietro.
 3. Canale dei comandi non ordinato e risoluzione adattiva: si sentono e si vedono sulla TV vera.
 
 ## Fatto
+
+- **Schizzi nell'acqua.** Gemini ha disegnato 8 spruzzi (`img/spruzzi.webp`: anelli d'onda,
+  ventagli, corone, gocce). Entrando in una pozza, o atterrandoci, `sim.js` manda l'evento
+  `splash` e la TV fa partire ventagli ai lati, corona e gocce sopra l'auto e un anello che si
+  allarga sotto, tanto più grandi quanto più l'auto è veloce. In pausa si fermano anche spruzzi e
+  polvere.
 
 - **Le auto si sporcano di fango.** Gemini ha ridisegnato le 4 auto pulite (`img/auto.webp`; prima
   la blu e la verde partivano già infangate) e 8 schizzi di fango (`img/schizzi.webp`). Ogni
