@@ -78,8 +78,6 @@ Per la grafica vale la regola del progetto: gli asset nuovi li disegna Gemini, i
 
 - **Motore campionato** al posto dell'oscillatore a dente di sega, con un suono diverso per ogni
   auto. *Alto · M*
-- **Suoni delle superfici.** Ciaff nel fango, splash nell'acqua, ghiaia sui dossi, sgommata nel
-  testacoda. *Alto · S*
 - **Musica** per sala d'attesa e gara, con volume regolabile. *Medio · M*
 - **Motori del computer udibili piano.** Ora suonano solo le auto dei giocatori (`engineSound`),
   quindi in solitario la pista è muta. *Basso · S*
@@ -171,15 +169,21 @@ Per la grafica vale la regola del progetto: gli asset nuovi li disegna Gemini, i
 
 ## Da dove partirei
 
-1. Suoni delle superfici: il carattere del gioco.
-2. Fantasma del record e «ULTIMO GIRO!»: obiettivi chiari per chi è indietro.
-3. Canale dei comandi non ordinato e risoluzione adattiva: si sentono e si vedono sulla TV vera.
+1. Fantasma del record e «ULTIMO GIRO!»: obiettivi chiari per chi è indietro.
+2. Canale dei comandi non ordinato e risoluzione adattiva: si sentono e si vedono sulla TV vera.
 
 ## Fatto
 
+- **Suoni delle superfici**, sintetizzati come gli altri: ciaff entrando nel fango, splash
+  nell'acqua, ghiaia sui dossi (più forti quanto più si arriva veloci) e sgommata nel testacoda,
+  per tutte le auto. Per chi guida, come i motori, anche il fondo sotto le ruote: risucchio con
+  qualche ciaff nel fango, fruscio nell'acqua, crepitio sui dossi. `sim.js` manda l'evento
+  `enter` quando un'auto entra su fango, acqua o dossi; tutti i suoni a
+  rumore usano un solo buffer invece di crearne uno a ogni colpo.
+
 - **Schizzi nell'acqua.** Gemini ha disegnato 8 spruzzi (`img/spruzzi.webp`: anelli d'onda,
   ventagli, corone, gocce). Entrando in una pozza, o atterrandoci, `sim.js` manda l'evento
-  `splash` e la TV fa partire ventagli ai lati, corona e gocce sopra l'auto e un anello che si
+  di ingresso in acqua e la TV fa partire ventagli ai lati, corona e gocce sopra l'auto e un anello che si
   allarga sotto, tanto più grandi quanto più l'auto è veloce. In pausa si fermano anche spruzzi e
   polvere.
 

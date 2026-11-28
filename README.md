@@ -12,6 +12,8 @@ basta inquadrare il QR. I posti vuoti li guida il computer.
 - salti, fango, acqua e dossi che cambiano aderenza e velocità
 - le auto si sporcano passando nel fango e l'acqua ne lava via una parte: si vede
   chi ha preso la strada peggiore; entrando in una pozza l'acqua schizza ai lati
+- suoni delle superfici: ciaff nel fango, splash nell'acqua, ghiaia sui dossi,
+  sgommata nel testacoda
 - nitro: 3 a testa, altre bombolette compaiono sulla pista
 - urti tra auto, vibrazione sul telefono a urti, atterraggi e traguardo; chi viene
   colpito forte di fianco fa un breve testacoda

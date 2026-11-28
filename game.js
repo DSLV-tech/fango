@@ -224,10 +224,10 @@
   const FX = {
     nitro: (e) => { sfx("nitro"); Net.rumble(e.i, 60); },
     land: (e) => { burst(e.x, e.y, 10, T.def.dirt, 60); Net.rumble(e.i, 50); sfx("land"); },
-    splash: (e) => splash(e),
+    enter: (e) => { if (e.s === 2) splash(e); sfx(["", "ciaff", "splash", "ghiaia"][e.s], e.v); },
     wall: (e) => { Net.rumble(e.i, Math.min(120, e.v)); sfx("hit", e.v); burst(e.x, e.y, 6, "#e8e0d0", 40); },
     bump: (e) => { sfx("bump", e.v); Net.rumble(e.i, 40); Net.rumble(e.j, 40); },
-    spin: (e) => { Net.rumble(e.i, 120); burst(e.x, e.y, 8, "#e8e0d0", 50); },
+    spin: (e) => { Net.rumble(e.i, 120); burst(e.x, e.y, 8, "#e8e0d0", 50); sfx("sgommata"); },
     pick: (e) => { sfx("pick"); Net.rumble(e.i, 25); burst(e.x, e.y, 8, "#7fe0ff", 50); },
     unstick: (e) => { burst(e.x, e.y, 10, T.def.dirt, 50); Net.rumble(e.i, 80); },
     lap: (e) => { if (e.n < LAPS) Net.rumble(e.i, 30); },        // l'ultimo giro vibra col traguardo
@@ -403,7 +403,7 @@
   }
 
   // ------------------------------------------------------------ audio (sintetizzato)
-  let ac = null, engines = null;
+  let ac = null, engines = null, grit = null, noiseBuf = null;
   function audioOn() {
     if (ac) { if (ac.state === "suspended") ac.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -411,11 +411,22 @@
     ac = new AC();
     const master = ac.createGain(); master.gain.value = 0.5; master.connect(ac.destination);
     ac.master = master;
+    // 2 s di rumore bianco, uno solo per tutti i suoni fatti di rumore
+    noiseBuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     engines = [0, 1, 2, 3].map(() => {
       const o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain();
       o.type = "sawtooth"; o.frequency.value = 40; f.type = "lowpass"; f.frequency.value = 400; g.gain.value = 0;
       o.connect(f).connect(g).connect(master); o.start();
       return { o, g };
+    });
+    // il fondo sotto le ruote di ogni auto: rumore in loop, filtrato secondo la superficie
+    grit = [0, 1, 2, 3].map(() => {
+      const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+      src.buffer = noiseBuf; src.loop = true; g.gain.value = 0;
+      src.connect(f).connect(g).connect(master); src.start(0, Math.random() * 2);
+      return { f, g, s: -1 };
     });
   }
   addEventListener("keydown", audioOn); addEventListener("pointerdown", audioOn);
@@ -426,19 +437,36 @@
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     o.connect(g).connect(ac.master); o.start(t); o.stop(t + dur);
   }
-  function noise(dur, vol, freq) {
+  // un colpo di rumore filtrato: la frequenza del filtro può scivolare da freq a `to`
+  function noise(dur, vol, freq, { type = "bandpass", q = 1, to = 0 } = {}) {
     if (!ac) return;
-    const t = ac.currentTime, b = ac.createBuffer(1, ac.sampleRate * dur, ac.sampleRate), d = b.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
-    s.buffer = b; f.type = "bandpass"; f.frequency.value = freq; g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    s.connect(f).connect(g).connect(ac.master); s.start(t);
+    const t = ac.currentTime, src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = noiseBuf; f.type = type; f.Q.value = q;
+    f.frequency.setValueAtTime(freq, t); if (to) f.frequency.exponentialRampToValueAtTime(to, t + dur);
+    g.gain.setValueAtTime(0.001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.002, vol), t + 0.008); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(f).connect(g).connect(ac.master); src.start(t, Math.random() * (2 - dur)); src.stop(t + dur);
   }
-  let lastHit = 0;
+  // sgommata: due seghe stonate che scendono, filtrate stretto e fatte tremare, più un sibilo
+  function screech(dur, vol) {
+    const t = ac.currentTime, f = ac.createBiquadFilter(), g = ac.createGain(), lfo = ac.createOscillator(), depth = ac.createGain();
+    f.type = "bandpass"; f.frequency.value = 1600; f.Q.value = 4;
+    lfo.frequency.value = 22; depth.gain.value = 60; lfo.connect(depth);
+    g.gain.setValueAtTime(0.001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.03);
+    g.gain.setValueAtTime(vol, t + dur * 0.6); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    for (const base of [1150, 1230]) {
+      const o = ac.createOscillator();
+      o.type = "sawtooth"; o.frequency.setValueAtTime(base, t); o.frequency.exponentialRampToValueAtTime(base * 0.7, t + dur);
+      depth.connect(o.frequency); o.connect(f); o.start(t); o.stop(t + dur);
+    }
+    f.connect(g).connect(ac.master); lfo.start(t); lfo.stop(t + dur);
+    noise(dur * 0.8, vol * 0.6, 3500, { type: "highpass", q: 0.7 });
+  }
+  // suoni che non si sovrappongono a se stessi: al più uno ogni tanti secondi
+  const GAP = { hit: 0.08, bump: 0.08, ciaff: 0.06, splash: 0.06, ghiaia: 0.06, squelch: 0.1, sgommata: 0.25 }, lastAt = {};
   function sfx(name, v = 0) {
     if (!ac) return;
-    if ((name === "hit" || name === "bump") && clock - lastHit < 0.08) return;
-    if (name === "hit" || name === "bump") lastHit = clock;
+    if (GAP[name]) { if (clock - (lastAt[name] ?? -1) < GAP[name]) return; lastAt[name] = clock; }
+    const k = Math.max(0.35, Math.min(1, v / 150));      // ingressi più forti quanto più si arriva veloci
     ({
       beep: () => tone(440, 0.18, "square", 0.12),
       go: () => tone(880, 0.4, "square", 0.14),
@@ -447,6 +475,12 @@
       hit: () => noise(0.12, Math.min(0.3, v / 300), 300),
       bump: () => noise(0.1, Math.min(0.25, v / 300), 500),
       land: () => noise(0.15, 0.2, 200),
+      // superfici: ciaff nel fango, splash nell'acqua, ghiaia sui dossi, sgommata nel testacoda
+      ciaff: () => { noise(0.22, 0.2 * k, 900, { q: 1.6, to: 220 }); tone(170, 0.12, "sine", 0.08 * k, -110); },
+      squelch: () => noise(0.12, 0.2, 700, { q: 2, to: 260 }),
+      splash: () => { noise(0.45, 0.16 * k, 2600, { q: 0.8, to: 700 }); noise(0.3, 0.14 * k, 500, { type: "lowpass", q: 0.7 }); },
+      ghiaia: () => noise(0.14, 0.12 * k, 3200, { q: 1.2, to: 1800 }),
+      sgommata: () => screech(0.55, 0.07),
       record: () => [784, 988, 1175, 1568].forEach((f, k) => setTimeout(() => tone(f, 0.12, "square", 0.09), k * 70)),
       finish: () => [523, 659, 784, 1046].forEach((f, k) => setTimeout(() => tone(f, 0.18, "square", 0.1), k * 110)),
     })[name]?.();
@@ -459,6 +493,28 @@
       const sp = c ? Math.hypot(c.vx, c.vy) : 0;
       e.g.gain.setTargetAtTime(on ? 0.035 + (c.boost > 0 ? 0.03 : 0) : 0, ac.currentTime, 0.1);
       e.o.frequency.setTargetAtTime(38 + sp * 0.55 + (c && c.z > 0 ? 25 : 0) + i * 3, ac.currentTime, 0.05);
+    }
+  }
+  // il fondo sotto le ruote di chi guida (come i motori, il computer resta muto): ghiaia che
+  // crepita sui dossi, fango che risucchia con qualche ciaff, acqua che fruscia
+  // ref: la velocità a cui il fondo suona pieno (nel fango si va piano)
+  const GRIT = [null,
+    { type: "lowpass", freq: 320, q: 0.7, vol: 0.15, ref: 60 },      // fango
+    { type: "bandpass", freq: 1100, q: 0.6, vol: 0.09, ref: 120 },   // acqua
+    { type: "bandpass", freq: 2600, q: 0.9, vol: 0.07, ref: 120 }];  // dossi
+  function surfaceSound(dt) {
+    if (!grit) return;
+    const t = ac.currentTime;
+    for (let i = 0; i < 4; i++) {
+      const c = cars[i], gr = grit[i];
+      const s = c && c.z <= 0.5 ? T.surf[c.idx] : 0, p = GRIT[s];
+      const k = c && p ? Math.min(1, Math.hypot(c.vx, c.vy) / p.ref) : 0;
+      if (!p || phase !== "race" || !Net.human(i) || k < 0.1) { gr.g.gain.setTargetAtTime(0, t, 0.05); continue; }
+      if (gr.s !== s) { gr.s = s; gr.f.type = p.type; gr.f.frequency.setTargetAtTime(p.freq, t, 0.03); gr.f.Q.value = p.q; }
+      // la ghiaia crepita: volume a scatti rapidi; fango e acqua scorrono
+      const crackle = s === 3 ? 0.3 + Math.random() * 0.9 : 1;
+      gr.g.gain.setTargetAtTime(p.vol * k * crackle, t, s === 3 ? 0.008 : 0.06);
+      if (s === 1 && Math.random() < dt * 3 * k) sfx("squelch");
     }
   }
 
@@ -645,7 +701,7 @@
     }
     if (phase !== "pause") { updateParts(dt); updateSplashes(dt); }     // in pausa si ferma anche la polvere
     phoneHud(dt);
-    engineSound();
+    engineSound(); surfaceSound(dt);
   }
 
   let last = performance.now();

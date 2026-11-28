@@ -114,7 +114,8 @@
   //   humans[i]  il posto è di un giocatore (anche se ora è scollegato): conta per la
   //              rimonta e per chiudere la gara; senza, vale «ha i comandi»
   // e restituisce gli eventi del passo, { type, i, … }:
-  //   nitro, land {x, y}, splash {x, y, a, v} (entra in acqua: posizione, direzione, velocità),
+  //   nitro, land {x, y}, enter {s, x, y, a, v} (entra su fango 1, acqua 2 o dossi 3:
+  //   superficie, posizione, direzione, velocità),
   //   wall {x, y, v}, bump {j, v}, spin {x, y}, pick {x, y},
   //   unstick {x, y} (dove era incastrata), lap {n, t}, record {t}, finish
   // best è il record del giro da battere: lo battono solo i giri di chi guida davvero.
@@ -132,6 +133,7 @@
       return {
         i, x, y, a: Math.atan2(T.ty[j], T.tx[j]), vx: 0, vy: 0, z: 0, vz: 0,
         idx: j, lap: -1, prog: 0, nitro: 3, boost: 0, nPrev: 0, done: false, time: 0, place: i + 1,
+        ground: T.surf[j],                              // superficie dell'ultimo contatto con terra
         ai: { off: (R() * 2 - 1) * 0.4, skill: 0.86 + i * 0.03 + R() * 0.04, look: 12 + (i % 2) * 3, ncd: 0, stuck: 0, back: 0 },
         bump: 0, steer: 0,
         maxLap: -1, lapT: 0, best: Infinity,          // giri cronometrati
@@ -246,9 +248,12 @@
           c.z = 0; c.vz = 0;
         }
       }
-      // l'acqua schizza quando un'auto ci entra, o ci atterra, abbastanza veloce
-      if (T.surf[c.idx] === 2 && c.z <= 0 && (air || T.surf[prevIdx] !== 2) && speed > 30)
-        ev.push({ type: "splash", i: c.i, x: c.x, y: c.y, a: c.a, v: speed });
+      // su fango, acqua o dossi: l'auto ci entra, o ci atterra da un salto, abbastanza veloce.
+      // Conta la superficie dell'ultimo contatto con terra, così i saltelli sui dossi no.
+      if (c.z <= 0 && T.surf[c.idx] !== c.ground) {
+        c.ground = T.surf[c.idx];
+        if (c.ground && speed > 30) ev.push({ type: "enter", i: c.i, s: c.ground, x: c.x, y: c.y, a: c.a, v: speed });
+      }
 
       // bordi della pista
       const lim = T.hw - P.r + 1;

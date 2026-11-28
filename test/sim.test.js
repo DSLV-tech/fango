@@ -117,17 +117,21 @@ test("rimessa in pista subito dopo il traguardo, non torna mai dietro la linea",
   assert.equal(c.lap, 1);
 });
 
-test("l'acqua schizza quando un'auto ci entra: dentro le pozze, al più una volta per pozza a giro", () => {
+test("si entra su fango, acqua e dossi: dentro la zona, al più una volta per zona a giro", () => {
+  const NAME = { 1: "mud", 2: "water", 3: "bumps" };
   for (const [track, def] of TRACKS.entries()) {
     const r = Sim.race({ track, seed: 3 });
-    const events = run(r), pools = def.zones.filter((z) => z.t === "water").length;
-    for (const c of r.cars) {
-      const splashes = ofType(events, "splash", c.i);
-      assert.ok(splashes.length <= pools * LAPS, `${def.name}, auto ${c.i}: ${splashes.length} schizzi`);
-      if (pools) assert.ok(splashes.length >= LAPS, `${def.name}, auto ${c.i}: almeno una volta a giro`);
-      for (const e of splashes) {
-        assert.equal(r.T.surf[Sim.locate(r.T, e.x, e.y, 0, true).i], 2, "nell'acqua");
-        assert.ok(e.v > 30);
+    const events = run(r);
+    for (const s of [1, 2, 3]) {
+      const zones = def.zones.filter((z) => z.t === NAME[s]).length;
+      for (const c of r.cars) {
+        const into = ofType(events, "enter", c.i).filter((e) => e.s === s);
+        assert.ok(into.length <= zones * LAPS, `${def.name}, auto ${c.i}, ${NAME[s]}: ${into.length} ingressi`);
+        if (zones) assert.ok(into.length >= 1, `${def.name}, auto ${c.i}, ${NAME[s]}: almeno una volta (piano, sotto i 30 px/s, non conta)`);
+        for (const e of into) {
+          assert.equal(r.T.surf[Sim.locate(r.T, e.x, e.y, 0, true).i], s, `${NAME[s]}: dentro la zona`);
+          assert.ok(e.v > 30);
+        }
       }
     }
   }
